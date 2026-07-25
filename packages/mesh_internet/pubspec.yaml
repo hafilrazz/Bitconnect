@@ -1,0 +1,20 @@
+name: mesh_internet
+description: E2E-encrypted internet transport for Netless (Nostr relays as dumb pipes).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  mesh_protocol:
+    path: ../mesh_protocol
+  web_socket_channel: ^3.0.1
+  crypto: ^3.0.5
+  convert: ^3.1.1
+  bip340: ^0.2.0
+  meta: ^1.12.0
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0

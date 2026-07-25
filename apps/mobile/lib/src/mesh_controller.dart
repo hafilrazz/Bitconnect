@@ -3,22 +3,26 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:mesh_ble/mesh_ble.dart';
+import 'package:mesh_internet/mesh_internet.dart';
 import 'package:mesh_protocol/mesh_protocol.dart';
 import 'package:mesh_transport/mesh_transport.dart';
 
+import 'identity_store.dart';
+
 enum TransportMode { fake, ble }
 
-/// Owns MeshNode lifecycle and message list for the UI.
+/// Owns mesh + internet E2E lifecycle for the UI.
 class MeshController extends ChangeNotifier {
   MeshController({
-    required this.identity,
-    required this.nickname,
-    this.mode = TransportMode.fake,
-  });
+    required this.appIdentity,
+  }) : nickname = appIdentity.nickname;
 
-  final CryptoIdentity identity;
+  final AppIdentity appIdentity;
+  CryptoIdentity get identity => appIdentity.sign;
   String nickname;
-  TransportMode mode;
+
+  TransportMode mode =
+      (!kIsWeb && Platform.isAndroid) ? TransportMode.ble : TransportMode.fake;
 
   MeshNode? _node;
   MeshTransport? _transport;
@@ -29,9 +33,20 @@ class MeshController extends ChangeNotifier {
   int peerCount = 0;
   Timer? _peerTimer;
 
-  // Simulated multi-node for in-app demo (fake mode only)
   SimFabric? _sim;
   final List<MeshNode> _simRelays = [];
+
+  // Internet E2E
+  InternetE2eService? _internet;
+  StreamSubscription<InternetDm>? _inetSub;
+  StreamSubscription<String>? _inetStatusSub;
+  bool internetOn = false;
+  String? internetStatus;
+  final List<InternetDm> internetMessages = [];
+  String? activePeerId;
+  List<Contact> contacts = [];
+
+  String get netlessId => appIdentity.netlessId;
 
   Future<void> startMesh() async {
     lastError = null;
@@ -50,14 +65,12 @@ class MeshController extends ChangeNotifier {
       } else {
         _sim = SimFabric();
         final local = _sim!.create('local');
-        // Relay path: local -- r1 -- r2 (for multi-hop demo inject)
         final r1 = _sim!.create('relay1');
         final r2 = _sim!.create('relay2');
         _sim!.link('local', 'relay1');
         _sim!.link('relay1', 'relay2');
         _transport = local;
 
-        // Silent relay nodes so hop demos work when injecting at r2 later
         final id1 = await CryptoIdentity.generate();
         final id2 = await CryptoIdentity.generate();
         final n1 = MeshNode(identity: id1, transport: r1, nickname: 'relay1');
@@ -127,8 +140,8 @@ class MeshController extends ChangeNotifier {
     await node.sendChat(text);
   }
 
-  /// Inject a remote chat via sim leaf -> relay2 -> relay1 -> local (multi-hop).
-  Future<void> injectSimulatedRemote(String text, {String nick = 'remote'}) async {
+  Future<void> injectSimulatedRemote(String text,
+      {String nick = 'remote'}) async {
     if (mode != TransportMode.fake || _sim == null) return;
     final id = await CryptoIdentity.generate();
     final leaf =
@@ -141,9 +154,94 @@ class MeshController extends ChangeNotifier {
     await sender.dispose();
   }
 
+  // --- Internet E2E ---
+
+  Future<void> startInternet() async {
+    lastError = null;
+    try {
+      await stopInternet();
+      _internet = InternetE2eService(
+        signIdentity: appIdentity.sign,
+        encIdentity: appIdentity.enc,
+        nickname: nickname,
+        keySeed: appIdentity.encSeed,
+      );
+      _inetSub = _internet!.messages.listen((dm) {
+        internetMessages.add(dm);
+        // auto-select peer on first inbound
+        if (!dm.isLocal && activePeerId == null) {
+          activePeerId = dm.peerNetlessId;
+        }
+        notifyListeners();
+      });
+      _inetStatusSub = _internet!.status.listen((s) {
+        internetStatus = s;
+        notifyListeners();
+      });
+      await _internet!.start();
+      internetOn = true;
+      internetStatus = 'E2E online · id ${netlessId.substring(0, 12)}…';
+      notifyListeners();
+    } catch (e) {
+      lastError = e.toString();
+      internetOn = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> stopInternet() async {
+    await _inetSub?.cancel();
+    _inetSub = null;
+    await _inetStatusSub?.cancel();
+    _inetStatusSub = null;
+    await _internet?.dispose();
+    _internet = null;
+    internetOn = false;
+    notifyListeners();
+  }
+
+  Future<void> sendInternetDm(String text) async {
+    final peer = activePeerId;
+    final inet = _internet;
+    if (inet == null || !internetOn) {
+      throw StateError('Internet E2E is off');
+    }
+    if (peer == null || peer.isEmpty) {
+      throw StateError('Pick a contact (recipient Netless ID)');
+    }
+    inet.nickname = nickname;
+    await inet.sendDm(recipientNetlessId: peer, text: text);
+  }
+
+  void setActivePeer(String netlessId) {
+    activePeerId = netlessId.toLowerCase().replaceAll(RegExp(r'[^0-9a-f]'), '');
+    notifyListeners();
+  }
+
+  Future<void> addContact(Contact c) async {
+    final id = c.netlessId.toLowerCase().replaceAll(RegExp(r'[^0-9a-f]'), '');
+    if (id.length != 64) {
+      throw ArgumentError('Netless ID must be 64 hex chars (X25519 pubkey)');
+    }
+    contacts.removeWhere((x) => x.netlessId == id);
+    contacts = [...contacts, Contact(name: c.name, netlessId: id)];
+    activePeerId = id;
+    notifyListeners();
+  }
+
+  List<InternetDm> messagesForActivePeer() {
+    final peer = activePeerId;
+    if (peer == null) return const [];
+    return internetMessages
+        .where((m) => m.peerNetlessId == peer || (m.isLocal && m.peerNetlessId == peer))
+        .toList();
+  }
+
   @override
   void dispose() {
     unawaited(stopMesh());
+    unawaited(stopInternet());
     super.dispose();
   }
 }

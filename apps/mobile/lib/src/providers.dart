@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mesh_protocol/mesh_protocol.dart';
 
@@ -9,37 +6,39 @@ import 'mesh_controller.dart';
 
 final identityStoreProvider = Provider((ref) => IdentityStore());
 
+final appIdentityProvider = FutureProvider<AppIdentity>((ref) async {
+  final store = ref.watch(identityStoreProvider);
+  return store.loadOrCreate();
+});
+
 final identityProvider = FutureProvider<CryptoIdentity>((ref) async {
-  return ref.watch(identityStoreProvider).loadOrCreateIdentity();
+  final app = await ref.watch(appIdentityProvider.future);
+  return app.sign;
 });
 
 final nicknameProvider = FutureProvider<String?>((ref) async {
   return ref.watch(identityStoreProvider).getNickname();
 });
 
-/// true if nickname already set
 final identityReadyProvider = FutureProvider<bool>((ref) async {
-  await ref.watch(identityProvider.future);
+  await ref.watch(appIdentityProvider.future);
   final nick = await ref.watch(nicknameProvider.future);
   return nick != null && nick.isNotEmpty;
 });
 
-final meshControllerProvider =
-    ChangeNotifierProvider<MeshController?>((ref) {
-  // Created after onboarding via override / manual; see bootstrap.
-  return null;
-});
-
 final meshControllerBootstrapProvider =
     FutureProvider<MeshController>((ref) async {
-  final id = await ref.watch(identityProvider.future);
-  final nick =
-      await ref.watch(identityStoreProvider).getNickname() ?? 'anon';
-  // On real Android devices default to BLE so sideloaded builds just work.
-  final mode = (!kIsWeb && Platform.isAndroid)
-      ? TransportMode.ble
-      : TransportMode.fake;
-  final c = MeshController(identity: id, nickname: nick, mode: mode);
+  final app = await ref.watch(appIdentityProvider.future);
+  final store = ref.watch(identityStoreProvider);
+  final c = MeshController(appIdentity: app);
+  c.contacts = await store.loadContacts();
+  if (c.contacts.isNotEmpty) {
+    c.activePeerId = c.contacts.first.netlessId;
+  }
+  // Persist contacts when changed — lightweight poll via listener
+  c.addListener(() {
+    store.saveContacts(c.contacts);
+  });
   ref.onDispose(c.dispose);
   return c;
 });

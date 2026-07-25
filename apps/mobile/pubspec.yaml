@@ -20,6 +20,8 @@ dependencies:
     path: ../../packages/mesh_transport
   mesh_ble:
     path: ../../packages/mesh_ble
+  mesh_internet:
+    path: ../../packages/mesh_internet
   permission_handler: ^11.3.1
 
 dev_dependencies:

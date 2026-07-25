@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../mesh_controller.dart';
 import '../providers.dart';
+import 'internet_dm_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -91,6 +92,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           if (c != null)
             IconButton(
+              tooltip: 'Internet E2E DM (worldwide)',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => InternetDmScreen(controller: c),
+                  ),
+                );
+              },
+              icon: Icon(
+                c.internetOn ? Icons.public : Icons.public_off,
+                color: c.internetOn ? Colors.lightGreenAccent : null,
+              ),
+            ),
+          if (c != null)
+            IconButton(
               tooltip: c.meshOn ? 'Stop mesh' : 'Start mesh',
               onPressed: _toggleMesh,
               icon: Icon(c.meshOn ? Icons.wifi_tethering : Icons.wifi_tethering_off),
@@ -110,6 +126,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   'Hello via multi-hop sim',
                   nick: 'sim-peer',
                 );
+              } else if (v == 'internet') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => InternetDmScreen(controller: c),
+                  ),
+                );
               } else if (v == 'clear') {
                 c.messages.clear();
                 setState(() {});
@@ -125,6 +147,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 value: 'ble',
                 checked: c?.mode == TransportMode.ble,
                 child: const Text('Transport: BLE'),
+              ),
+              const PopupMenuItem(
+                value: 'internet',
+                child: Text('Internet E2E DM…'),
               ),
               const PopupMenuItem(
                 value: 'inject',

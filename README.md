@@ -13,12 +13,17 @@ Netless is a Flutter app for **public channel chat** on an ad-hoc BLE multi-hop 
 - Installable Android + iOS demo for a crowded venue (about 5-20 phones)
 - Protocol logic in pure Dart (unit-tested without phones)
 
+### Internet E2E (implemented)
+
+- Worldwide **private DMs** over public Nostr relays
+- **Pure end-to-end encryption**: X25519 ECDH + ChaCha20-Poly1305; Ed25519 authenticity
+- Relays only store ciphertext (see [docs/E2E_INTERNET.md](docs/E2E_INTERNET.md))
+
 ### Not in MVP
 
-- Private DMs / E2E (phase 2 — keypairs are ready)
-- Internet / Nostr bridge
 - Long-term store-and-forward ferry
 - Images or large attachments
+- Public global channels (only E2E 1:1 DMs on internet)
 
 ## Repo layout
 
