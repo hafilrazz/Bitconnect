@@ -1,0 +1,31 @@
+name: netless
+description: Offline Bluetooth mesh chat.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.6.1
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.3
+  mesh_protocol:
+    path: ../../packages/mesh_protocol
+  mesh_transport:
+    path: ../../packages/mesh_transport
+  mesh_ble:
+    path: ../../packages/mesh_ble
+  permission_handler: ^11.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
