@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:mesh_ble/mesh_ble.dart';
@@ -41,7 +42,11 @@ class MeshController extends ChangeNotifier {
         if (!ok) {
           throw StateError('Bluetooth permissions not granted');
         }
-        _transport = BleMeshTransport();
+        if (!kIsWeb && Platform.isAndroid) {
+          _transport = AndroidBleMeshTransport();
+        } else {
+          _transport = BleMeshTransport();
+        }
       } else {
         _sim = SimFabric();
         final local = _sim!.create('local');

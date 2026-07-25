@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mesh_protocol/mesh_protocol.dart';
 
@@ -32,7 +35,10 @@ final meshControllerBootstrapProvider =
   final id = await ref.watch(identityProvider.future);
   final nick =
       await ref.watch(identityStoreProvider).getNickname() ?? 'anon';
-  final mode = TransportMode.fake; // default safe; toggle in UI to BLE
+  // On real Android devices default to BLE so sideloaded builds just work.
+  final mode = (!kIsWeb && Platform.isAndroid)
+      ? TransportMode.ble
+      : TransportMode.fake;
   final c = MeshController(identity: id, nickname: nick, mode: mode);
   ref.onDispose(c.dispose);
   return c;
