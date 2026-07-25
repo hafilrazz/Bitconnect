@@ -3,11 +3,18 @@ import 'package:flutter/services.dart';
 
 import '../identity_store.dart';
 import '../mesh_controller.dart';
+import '../widgets/message_bubble.dart';
+import '../widgets/status_chip.dart';
 
 class InternetDmScreen extends StatefulWidget {
-  const InternetDmScreen({super.key, required this.controller});
+  const InternetDmScreen({
+    super.key,
+    required this.controller,
+    this.embedded = false,
+  });
 
   final MeshController controller;
+  final bool embedded;
 
   @override
   State<InternetDmScreen> createState() => _InternetDmScreenState();
@@ -17,6 +24,9 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
   final _text = TextEditingController();
   final _peerId = TextEditingController();
   final _peerName = TextEditingController();
+  final _scroll = ScrollController();
+  bool _busy = false;
+  bool _showAddContact = true;
 
   MeshController get c => widget.controller;
 
@@ -26,11 +36,25 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
     c.addListener(_onChange);
     if (c.activePeerId != null) {
       _peerId.text = c.activePeerId!;
+      _showAddContact = c.contacts.isEmpty;
     }
   }
 
   void _onChange() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _scrollToEnd();
+  }
+
+  void _scrollToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent + 80,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
@@ -39,10 +63,12 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
     _text.dispose();
     _peerId.dispose();
     _peerName.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
   Future<void> _toggle() async {
+    setState(() => _busy = true);
     try {
       if (c.internetOn) {
         await c.stopInternet();
@@ -52,16 +78,22 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _addContact() async {
     try {
-      final name = _peerName.text.trim().isEmpty ? 'friend' : _peerName.text.trim();
+      final name =
+          _peerName.text.trim().isEmpty ? 'friend' : _peerName.text.trim();
       await c.addContact(Contact(name: name, netlessId: _peerId.text.trim()));
+      setState(() => _showAddContact = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Contact saved — messages are E2E encrypted')),
+        const SnackBar(
+          content: Text('Contact saved — messages stay E2E encrypted'),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -76,86 +108,170 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
       if (!c.internetOn) await c.startInternet();
       await c.sendInternetDm(t);
       _text.clear();
+      _scrollToEnd();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
+  String? get _activeName {
+    final id = c.activePeerId;
+    if (id == null) return null;
+    for (final x in c.contacts) {
+      if (x.netlessId == id) return x.name;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final msgs = c.messagesForActivePeer();
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Internet E2E DM'),
-        actions: [
-          IconButton(
-            tooltip: c.internetOn ? 'Disconnect' : 'Connect relays',
-            onPressed: _toggle,
-            icon: Icon(c.internetOn ? Icons.cloud_done : Icons.cloud_off),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Material(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    c.internetOn
-                        ? '🔒 Pure E2E · relays see ciphertext only'
-                        : 'Connect to send DMs worldwide (needs internet)',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+    final peerLabel = _activeName != null
+        ? '$_activeName'
+        : (c.activePeerId != null
+            ? '${c.activePeerId!.substring(0, 8)}…'
+            : 'No contact');
+
+    final body = Column(
+      children: [
+        Material(
+          color: theme.colorScheme.surfaceContainerHighest,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Private 1:1 · pure end-to-end encryption',
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Works India ↔ USA when both have internet. '
+                  'Relays only see ciphertext.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.white60),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    StatusChip(
+                      label: c.internetOn ? 'Relays connected' : 'Offline',
+                      active: c.internetOn,
+                    ),
+                    StatusChip(
+                      label: 'Chatting: $peerLabel',
+                      active: c.activePeerId != null,
+                      activeColor: theme.colorScheme.tertiary,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                              ClipboardData(text: c.netlessId));
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Your Netless ID copied')),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: const Text('Copy my ID'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _toggle,
+                      icon: _busy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(c.internetOn ? Icons.cloud_done : Icons.cloud),
+                      label: Text(c.internetOn ? 'Connected' : 'Connect'),
+                    ),
+                  ],
+                ),
+                if (c.internetStatus != null) ...[
                   const SizedBox(height: 8),
-                  SelectableText(
-                    'Your Netless ID:\n${c.netlessId}',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                  Text(
+                    c.internetStatus!,
+                    style: const TextStyle(fontSize: 11, color: Colors.white54),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: c.netlessId));
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Netless ID copied')),
-                        );
-                      },
-                      icon: const Icon(Icons.copy, size: 16),
-                      label: const Text('Copy my ID'),
-                    ),
-                  ),
-                  if (c.internetStatus != null)
-                    Text(
-                      c.internetStatus!,
-                      style: const TextStyle(fontSize: 11, color: Colors.white54),
-                    ),
                 ],
-              ),
+              ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Column(
-              children: [
+        ),
+        // Contact picker / add
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: Column(
+            children: [
+              if (c.contacts.isNotEmpty)
+                DropdownButtonFormField<String>(
+                  key: ValueKey(c.activePeerId),
+                  initialValue: c.activePeerId != null &&
+                          c.contacts.any((x) => x.netlessId == c.activePeerId)
+                      ? c.activePeerId
+                      : null,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                    labelText: 'Chat with',
+                  ),
+                  items: c.contacts
+                      .map(
+                        (x) => DropdownMenuItem(
+                          value: x.netlessId,
+                          child: Text(
+                              '${x.name}  (${x.netlessId.substring(0, 8)}…)'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) {
+                      c.setActivePeer(v);
+                      _peerId.text = v;
+                    }
+                  },
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () =>
+                      setState(() => _showAddContact = !_showAddContact),
+                  icon: Icon(_showAddContact ? Icons.expand_less : Icons.person_add),
+                  label: Text(_showAddContact ? 'Hide add contact' : 'Add contact'),
+                ),
+              ),
+              if (_showAddContact) ...[
                 TextField(
                   controller: _peerName,
                   decoration: const InputDecoration(
-                    labelText: 'Contact name',
+                    labelText: 'Name',
                     isDense: true,
                     border: OutlineInputBorder(),
+                    hintText: 'e.g. Alex in NYC',
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _peerId,
                   decoration: const InputDecoration(
-                    labelText: 'Their Netless ID (64 hex)',
+                    labelText: 'Their Netless ID',
+                    helperText: '64 hex characters — paste from their “Copy my ID”',
                     isDense: true,
                     border: OutlineInputBorder(),
                   ),
@@ -163,127 +279,118 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
                   maxLines: 2,
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    FilledButton.tonal(
-                      onPressed: _addContact,
-                      child: const Text('Save & chat'),
-                    ),
-                    const SizedBox(width: 8),
-                    if (c.contacts.isNotEmpty)
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: c.activePeerId != null &&
-                                  c.contacts
-                                      .any((x) => x.netlessId == c.activePeerId)
-                              ? c.activePeerId
-                              : null,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                            labelText: 'Contacts',
-                          ),
-                          items: c.contacts
-                              .map(
-                                (x) => DropdownMenuItem(
-                                  value: x.netlessId,
-                                  child: Text(
-                                      '${x.name} (${x.netlessId.substring(0, 8)}…)'),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (v) {
-                            if (v != null) {
-                              c.setActivePeer(v);
-                              _peerId.text = v;
-                            }
-                          },
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.tonal(
+                    onPressed: _addContact,
+                    child: const Text('Save & chat'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const Divider(height: 12),
+        Expanded(
+          child: msgs.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lock_outline,
+                            size: 48, color: Colors.white38),
+                        const SizedBox(height: 12),
+                        Text(
+                          c.activePeerId == null
+                              ? 'Add a contact to start'
+                              : 'No messages yet',
+                          style: theme.textTheme.titleMedium,
                         ),
-                      ),
-                  ],
+                        const SizedBox(height: 8),
+                        const Text(
+                          '1. Copy your ID and send it to a friend\n'
+                          '2. Paste theirs under Add contact\n'
+                          '3. Connect, then send a locked message',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white54, height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  controller: _scroll,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: msgs.length,
+                  itemBuilder: (context, i) {
+                    final m = msgs[i];
+                    return MessageBubble(
+                      isLocal: m.isLocal,
+                      locked: true,
+                      header: '${m.nickname} · ${m.senderSignFingerprint}',
+                      body: m.text,
+                      timeLabel: formatEpoch(m.timestamp),
+                    );
+                  },
+                ),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _text,
+                    enabled: c.activePeerId != null,
+                    textInputAction: TextInputAction.send,
+                    decoration: InputDecoration(
+                      hintText: c.activePeerId == null
+                          ? 'Select a contact first'
+                          : 'Encrypted message',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.lock_outline, size: 18),
+                    ),
+                    onSubmitted: (_) => _send(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  onPressed: c.activePeerId == null ? null : _send,
+                  icon: const Icon(Icons.send),
                 ),
               ],
             ),
           ),
-          const Divider(height: 16),
-          Expanded(
-            child: msgs.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No E2E messages yet.\nExchange Netless IDs with someone abroad,\nthen send — content is encrypted on-device.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white54),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: msgs.length,
-                    itemBuilder: (context, i) {
-                      final m = msgs[i];
-                      return Align(
-                        alignment: m.isLocal
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          constraints: BoxConstraints(
-                            maxWidth: MediaQuery.of(context).size.width * 0.8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: m.isLocal
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .secondaryContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '🔒 ${m.nickname} · ${m.senderSignFingerprint}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontFamily: 'monospace',
-                                ),
-                              ),
-                              Text(m.text),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _text,
-                      decoration: const InputDecoration(
-                        hintText: 'E2E message (internet)',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onSubmitted: (_) => _send(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _send,
-                    icon: const Icon(Icons.lock),
-                  ),
-                ],
-              ),
-            ),
+        ),
+      ],
+    );
+
+    if (widget.embedded) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Worldwide E2E'),
+        ),
+        body: body,
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Worldwide E2E'),
+        actions: [
+          IconButton(
+            tooltip: c.internetOn ? 'Disconnect' : 'Connect',
+            onPressed: _busy ? null : _toggle,
+            icon: Icon(c.internetOn ? Icons.cloud_done : Icons.cloud_off),
           ),
         ],
       ),
+      body: body,
     );
   }
 }

@@ -1,45 +1,59 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../mesh_controller.dart';
-import '../providers.dart';
-import 'internet_dm_screen.dart';
+import '../widgets/message_bubble.dart';
+import '../widgets/status_chip.dart';
 
-class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key});
+/// Local BLE / sim mesh channel UI (`#local`).
+class LocalMeshPage extends StatefulWidget {
+  const LocalMeshPage({super.key, required this.controller});
+
+  final MeshController controller;
 
   @override
-  ConsumerState<ChatScreen> createState() => _ChatScreenState();
+  State<LocalMeshPage> createState() => _LocalMeshPageState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _LocalMeshPageState extends State<LocalMeshPage> {
   final _text = TextEditingController();
-  MeshController? _controller;
+  final _scroll = ScrollController();
+  bool _busy = false;
 
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
-  Future<void> _ensureController() async {
-    if (_controller != null) return;
-    _controller = await ref.read(meshControllerBootstrapProvider.future);
-    _controller!.addListener(() {
-      if (mounted) setState(() {});
-    });
-    if (mounted) setState(() {});
-  }
+  MeshController get c => widget.controller;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureController());
+    c.addListener(_onChange);
+  }
+
+  void _onChange() {
+    if (!mounted) return;
+    setState(() {});
+    _scrollToEnd();
+  }
+
+  void _scrollToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent + 80,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    c.removeListener(_onChange);
+    _text.dispose();
+    _scroll.dispose();
+    super.dispose();
   }
 
   Future<void> _toggleMesh() async {
-    final c = _controller;
-    if (c == null) return;
+    setState(() => _busy = true);
     try {
       if (c.meshOn) {
         await c.stopMesh();
@@ -48,90 +62,45 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _send() async {
     final t = _text.text.trim();
     if (t.isEmpty) return;
-    final c = _controller;
-    if (c == null) return;
     try {
       if (!c.meshOn) await c.startMesh();
       await c.send(t);
       _text.clear();
+      _scrollToEnd();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = _controller;
-    final idAsync = ref.watch(identityProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('#local'),
         actions: [
-          if (c != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Center(
-                child: Text(
-                  c.meshOn ? 'peers ${c.peerCount}' : 'mesh off',
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-              ),
-            ),
-          if (c != null)
-            IconButton(
-              tooltip: 'Internet E2E DM (worldwide)',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => InternetDmScreen(controller: c),
-                  ),
-                );
-              },
-              icon: Icon(
-                c.internetOn ? Icons.public : Icons.public_off,
-                color: c.internetOn ? Colors.lightGreenAccent : null,
-              ),
-            ),
-          if (c != null)
-            IconButton(
-              tooltip: c.meshOn ? 'Stop mesh' : 'Start mesh',
-              onPressed: _toggleMesh,
-              icon: Icon(c.meshOn ? Icons.wifi_tethering : Icons.wifi_tethering_off),
-            ),
           PopupMenuButton<String>(
             onSelected: (v) async {
-              if (c == null) return;
               if (v == 'fake' || v == 'ble') {
                 final wasOn = c.meshOn;
                 if (wasOn) await c.stopMesh();
-                c.mode =
-                    v == 'ble' ? TransportMode.ble : TransportMode.fake;
+                c.mode = v == 'ble' ? TransportMode.ble : TransportMode.fake;
                 setState(() {});
                 if (wasOn) await c.startMesh();
               } else if (v == 'inject') {
-                await c.injectSimulatedRemote(
-                  'Hello via multi-hop sim',
-                  nick: 'sim-peer',
-                );
-              } else if (v == 'internet') {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => InternetDmScreen(controller: c),
-                  ),
-                );
+                await c.injectSimulatedRemote('Hello via multi-hop sim',
+                    nick: 'sim-peer');
               } else if (v == 'clear') {
                 c.messages.clear();
                 setState(() {});
@@ -139,22 +108,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             },
             itemBuilder: (context) => [
               CheckedPopupMenuItem(
-                value: 'fake',
-                checked: c?.mode == TransportMode.fake,
-                child: const Text('Transport: Fake (sim)'),
+                value: 'ble',
+                checked: c.mode == TransportMode.ble,
+                child: const Text('Radio: Bluetooth'),
               ),
               CheckedPopupMenuItem(
-                value: 'ble',
-                checked: c?.mode == TransportMode.ble,
-                child: const Text('Transport: BLE'),
-              ),
-              const PopupMenuItem(
-                value: 'internet',
-                child: Text('Internet E2E DM…'),
+                value: 'fake',
+                checked: c.mode == TransportMode.fake,
+                child: const Text('Radio: Simulator'),
               ),
               const PopupMenuItem(
                 value: 'inject',
-                child: Text('Inject simulated remote'),
+                child: Text('Inject simulated hop'),
               ),
               const PopupMenuItem(
                 value: 'clear',
@@ -167,104 +132,105 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: Column(
         children: [
           Material(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            child: ListTile(
-              dense: true,
-              title: idAsync.when(
-                data: (id) => Text(
-                  '${c?.nickname ?? '...'} · ${id.shortFingerprint}',
-                  style: const TextStyle(fontFamily: 'monospace'),
-                ),
-                loading: () => const Text('…'),
-                error: (e, _) => Text('$e'),
-              ),
-              subtitle: Text(
-                c?.mode == TransportMode.ble
-                    ? 'BLE mode — needs physical phones'
-                    : 'Sim mode — local + relays (no radio)',
+            color: theme.colorScheme.surfaceContainerHighest,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${c.nickname} · ${c.identity.shortFingerprint}',
+                    style: const TextStyle(fontFamily: 'monospace'),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      StatusChip(
+                        label: c.meshOn
+                            ? 'Mesh on · ${c.peerCount} peer${c.peerCount == 1 ? '' : 's'}'
+                            : 'Mesh off',
+                        active: c.meshOn,
+                      ),
+                      StatusChip(
+                        label: c.mode == TransportMode.ble ? 'Bluetooth' : 'Simulator',
+                        active: true,
+                        activeColor: theme.colorScheme.primary,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    c.mode == TransportMode.ble
+                        ? 'Nearby phones form a mesh. Keep the app open for best results.'
+                        : 'Simulator mode for demos without radios. Switch to Bluetooth in ⋮ menu.',
+                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.white60),
+                  ),
+                ],
               ),
             ),
           ),
-          if (c?.lastError != null)
+          if (c.lastError != null)
             Material(
               color: Colors.red.shade900,
               child: ListTile(
                 dense: true,
-                title: Text(c!.lastError!, style: const TextStyle(fontSize: 12)),
+                leading: const Icon(Icons.error_outline, size: 18),
+                title: Text(c.lastError!, style: const TextStyle(fontSize: 12)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () {
+                    c.lastError = null;
+                    setState(() {});
+                  },
+                ),
               ),
             ),
           Expanded(
-            child: c == null
-                ? const Center(child: CircularProgressIndicator())
-                : c.messages.isEmpty
-                    ? Center(
-                        child: Text(
-                          c.meshOn
-                              ? 'Mesh on. Say hi on #local.'
-                              : 'Turn mesh on to chat.',
-                          style: const TextStyle(color: Colors.white54),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: c.messages.length,
-                        itemBuilder: (context, i) {
-                          final m = c.messages[i];
-                          return Align(
-                            alignment: m.isLocal
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              constraints: BoxConstraints(
-                                maxWidth:
-                                    MediaQuery.of(context).size.width * 0.8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: m.isLocal
-                                    ? Theme.of(context)
-                                        .colorScheme
-                                        .primaryContainer
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .secondaryContainer,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${m.nickname} · ${m.fingerprint}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontFamily: 'monospace',
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSecondaryContainer
-                                          .withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(m.text),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+            child: c.messages.isEmpty
+                ? _EmptyLocal(meshOn: c.meshOn, onStart: _busy ? null : _toggleMesh)
+                : ListView.builder(
+                    controller: _scroll,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: c.messages.length,
+                    itemBuilder: (context, i) {
+                      final m = c.messages[i];
+                      return MessageBubble(
+                        isLocal: m.isLocal,
+                        header: '${m.nickname} · ${m.fingerprint}',
+                        body: m.text,
+                        timeLabel: formatEpoch(m.packet.timestamp),
+                      );
+                    },
+                  ),
           ),
           SafeArea(
+            top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               child: Row(
                 children: [
+                  IconButton.filledTonal(
+                    tooltip: c.meshOn ? 'Stop mesh' : 'Start mesh',
+                    onPressed: _busy ? null : _toggleMesh,
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(c.meshOn
+                            ? Icons.wifi_tethering
+                            : Icons.wifi_tethering_off),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       controller: _text,
+                      textInputAction: TextInputAction.send,
                       decoration: const InputDecoration(
-                        hintText: 'Message #local',
+                        hintText: 'Message everyone on #local',
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
@@ -282,6 +248,66 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _EmptyLocal extends StatelessWidget {
+  const _EmptyLocal({required this.meshOn, required this.onStart});
+
+  final bool meshOn;
+  final VoidCallback? onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              meshOn ? Icons.forum_outlined : Icons.wifi_tethering,
+              size: 48,
+              color: Colors.white38,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              meshOn ? 'Mesh is live' : 'Start the local mesh',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              meshOn
+                  ? 'Say hi on #local. Anyone in radio range of the mesh can read this channel — it is not private.'
+                  : 'Turn on mesh to discover nearby Netless users and relay messages.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54, height: 1.35),
+            ),
+            if (!meshOn && onStart != null) ...[
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: onStart,
+                icon: const Icon(Icons.wifi_tethering),
+                label: const Text('Start mesh'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Kept for any old routes; prefer [HomeShell].
+class ChatScreen extends StatelessWidget {
+  const ChatScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Legacy entry — redirect users via home shell in app.dart
+    return const Scaffold(
+      body: Center(child: Text('Use HomeShell')),
     );
   }
 }

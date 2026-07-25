@@ -1,105 +1,208 @@
 # Netless
 
-Offline Bluetooth mesh chat. Messages hop device-to-device over BLE — no internet, no cell, no servers.
+**Offline Bluetooth mesh chat + worldwide end-to-end encrypted DMs.**
 
-## What it is
+No accounts. No phone numbers. No app server of your own for DMs — internet messages ride public Nostr relays as **ciphertext only**.
 
-Netless is a Flutter app for **public channel chat** on an ad-hoc BLE multi-hop mesh (Bridgefy / Bitchat-style). Every phone advertises, scans, and relays. Messages are **Ed25519-signed** so you can verify authorship even though nicknames are free-form.
+---
 
-### MVP scope
+## Features
 
-- Multi-hop gossip flood on a default `#local` channel
-- Pseudonymous identity (Ed25519 keypair + nickname)
-- Installable Android + iOS demo for a crowded venue (about 5-20 phones)
-- Protocol logic in pure Dart (unit-tested without phones)
+| Mode | When to use | Privacy |
+|---|---|---|
+| **Local mesh** (`#local`) | Same room, concert, campus, disaster — no internet | Public to the mesh (signed, not private) |
+| **Worldwide E2E** | India ↔ USA or any distance with internet | **Pure E2E** 1:1 DMs |
 
-### Internet E2E (implemented)
+### Local mesh (Bluetooth)
 
-- Worldwide **private DMs** over public Nostr relays
-- **Pure end-to-end encryption**: X25519 ECDH + ChaCha20-Poly1305; Ed25519 authenticity
-- Relays only store ciphertext (see [docs/E2E_INTERNET.md](docs/E2E_INTERNET.md))
+- Multi-hop BLE gossip (devices relay for each other)
+- Ed25519-signed channel posts
+- Default channel: `#local`
+- Android dual-role BLE (advertise + scan/connect)
 
-### Not in MVP
+### Worldwide E2E (Internet)
 
-- Long-term store-and-forward ferry
-- Images or large attachments
-- Public global channels (only E2E 1:1 DMs on internet)
+- Private **1:1** messages over public Nostr relays
+- **X25519 ECDH + ChaCha20-Poly1305** encryption on-device
+- **Ed25519** authenticity of the sealed box
+- Relays **cannot read** message text  
+  Details: [docs/E2E_INTERNET.md](docs/E2E_INTERNET.md)
+
+### Not included (yet)
+
+- Group E2E / public global channels
+- Media attachments
+- Store-and-forward “ferry” over days offline
+- Play Store / App Store release signing pipeline
+
+---
+
+## Install the Android app
+
+Prebuilt release APK (sideload):
+
+```
+C:\netless\dist\netless-release.apk
+```
+
+Or rebuild:
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot"
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$env:PATH = "$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;C:\Users\hafil\flutter\bin;$env:PATH"
+
+cd C:\netless\apps\mobile
+flutter pub get
+flutter build apk --release
+# APK: build\app\outputs\flutter-apk\app-release.apk
+```
+
+**Requirements:** Android 8+ (API 26), Bluetooth for mesh, Internet for worldwide DMs.
+
+### USB install
+
+```powershell
+adb install -r C:\netless\dist\netless-release.apk
+```
+
+---
+
+## App UX (what you see)
+
+Bottom navigation:
+
+1. **Local mesh** — `#local` channel, start/stop mesh, peer count, message list  
+2. **Worldwide** — copy your Netless ID, add a contact, connect relays, send 🔒 DMs  
+
+Onboarding sets a nickname and explains both modes.
+
+### Local mesh — quick use
+
+1. Open **Local mesh** → **Start mesh** (or send a message to auto-start).
+2. Grant Bluetooth / nearby-device permissions.
+3. On a second phone with Netless nearby, start mesh and chat on `#local`.
+4. Menu (⋮): switch **Bluetooth** vs **Simulator**, inject a fake hop, clear history.
+
+### Worldwide E2E — India ↔ USA
+
+1. Open **Worldwide** on both phones (both need internet).
+2. Each taps **Copy my ID** and shares it (any channel).
+3. **Add contact** → paste their Netless ID → **Save & chat**.
+4. Tap **Connect**, then send. Messages are encrypted **before** leaving the phone.
+
+---
 
 ## Repo layout
 
 ```
-apps/mobile/           Flutter app (UI + wiring)
+apps/mobile/              Flutter UI (Material 3)
 packages/
-  mesh_protocol/       Packet codec, crypto, gossip (pure Dart)
-  mesh_transport/      Transport interface + FakeTransport simulator
-  mesh_ble/            BLE implementation (flutter_blue_plus)
+  mesh_protocol/          Packets, gossip, Ed25519, E2E crypto (pure Dart)
+  mesh_transport/         FakeTransport + sim fabric
+  mesh_ble/               BLE central + Android dual-role bridge
+  mesh_internet/          Nostr client + InternetE2eService
 docs/
-  PROTOCOL.md          Wire format and mesh rules
-  DEMO.md              How to run a multi-phone demo
+  PROTOCOL.md             Mesh wire format
+  E2E_INTERNET.md         Internet E2E threat model
+  DEMO.md                 Multi-phone demo checklist
+dist/
+  netless-release.apk     Sideload build (when built)
 ```
 
-## Prerequisites
+---
 
-- Flutter 3.22+ (stable)
-- Android SDK and/or Xcode for device builds
-- Physical phones for real multi-hop (BLE does not work in most emulators)
+## Develop
+
+### Prerequisites
+
+- Flutter **3.22+** (this machine: `C:\Users\hafil\flutter`)
+- **JDK 17** for Android Gradle (JDK 26 is too new for current Gradle)
+- Android SDK (`%LOCALAPPDATA%\Android\Sdk`)
 
 ```powershell
 $env:PATH = "C:\Users\hafil\flutter\bin;$env:PATH"
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot"
 flutter doctor
 ```
 
-## Quick start
+### Run
 
-```bash
-cd apps/mobile
+```powershell
+cd C:\netless\apps\mobile
 flutter pub get
-flutter test
 flutter run
 ```
 
-Protocol package tests:
+### Tests
 
-```bash
-cd packages/mesh_protocol
+```powershell
+cd C:\netless\packages\mesh_protocol
 dart pub get
 dart test
 ```
 
-### Simulated mesh (no BLE)
+Includes multi-hop gossip sims and E2E seal/open tests.
 
-Default debug mode uses `FakeTransport` so you can exercise multi-hop gossip without radios. Protocol package tests cover line and diamond topologies.
-
-### Real BLE
-
-1. Install on two or more physical devices.
-2. Grant Bluetooth permissions; on Android allow the foreground service notification.
-3. Turn mesh **On**, join `#local`, send a message.
-4. For a 3-hop proof: A and C out of range with B in the middle. See [docs/DEMO.md](docs/DEMO.md).
+---
 
 ## Architecture
 
 ```
-UI -> Identity / MessageStore -> MeshNode (gossip) -> MeshTransport -> BLE
+┌─────────────────────────────────────────────┐
+│  Flutter UI  (Local mesh | Worldwide E2E)   │
+├──────────────────┬──────────────────────────┤
+│  MeshNode        │  InternetE2eService      │
+│  (gossip, TTL)   │  (seal box → Nostr)      │
+├──────────────────┼──────────────────────────┤
+│  BLE / Fake      │  Nostr WebSocket relays  │
+└──────────────────┴──────────────────────────┘
 ```
 
-- `mesh_protocol` never imports Flutter.
-- Platforms only move bytes; TTL, dedup, and signatures are shared Dart.
+- `mesh_protocol` has **no Flutter dependency** — unit-testable.
+- Mesh identity: Ed25519 (sign). Encryption identity: X25519 (E2E).
+- Netless ID (shareable) = **X25519 public key hex** (64 chars).
 
-## Identity and security
+---
 
-- First launch generates an Ed25519 keypair in secure storage.
-- Public channel posts are signed; receivers drop invalid signatures.
-- Nicknames are not unique — trust the short pubkey fingerprint.
-- `#local` is public to anyone in the mesh. Do not send secrets there.
+## Security notes
+
+| Surface | Behavior |
+|---|---|
+| `#local` mesh | **Not confidential** — anyone on the mesh can read |
+| Internet DMs | **E2E confidential + authenticated** |
+| Nicknames | Not unique; trust fingerprint / Netless ID |
+| Relays | Untrusted; see only ciphertext + coarse metadata |
+| Keys | Stored in `flutter_secure_storage` |
+
+Do **not** put secrets on `#local`. Use **Worldwide E2E** for private remote chat.
+
+---
 
 ## Platform notes
 
-| Platform | Mesh while backgrounded |
+| Platform | Local mesh background | Internet E2E |
+|---|---|---|
+| **Android** | Works in foreground; keep app open for best mesh | Works with network permission |
+| **iOS** | Scaffolded; BLE background is best-effort | Same client code; build with Xcode |
+
+---
+
+## UX status
+
+| Area | Status |
 |---|---|
-| Android | Foreground service keeps mesh alive while Mesh on |
-| iOS | Best-effort with BLE background modes; demo with app open |
+| Onboarding (nickname + mode explainer) | Done |
+| Bottom nav Local / Worldwide | Done |
+| Mesh status chips, empty states, start CTA | Done |
+| E2E contact add/copy ID, connect, locked bubbles | Done |
+| Timestamps, scroll-to-latest | Done |
+| Production polish (QR codes, push, read receipts, theming, a11y audit) | **Not done** |
+
+The UI is **usable for demos and real E2E testing**, not a finished consumer chat product.
+
+---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

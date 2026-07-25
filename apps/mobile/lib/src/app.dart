@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers.dart';
-import 'screens/chat_screen.dart';
+import 'screens/home_shell.dart';
 import 'screens/onboarding_screen.dart';
 
 class NetlessApp extends ConsumerWidget {
@@ -20,10 +20,13 @@ class NetlessApp extends ConsumerWidget {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+        ),
       ),
       home: ready.when(
         data: (hasNick) =>
-            hasNick ? const ChatScreen() : const OnboardingScreen(),
+            hasNick ? const HomeShell() : const OnboardingScreen(),
         loading: () => const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
