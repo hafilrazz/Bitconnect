@@ -7,7 +7,7 @@ No accounts. No phone numbers. Messages hop phone-to-phone over BLE when offline
 | | |
 |---|---|
 | **Product name** | Bitconnect |
-| **Version** | 0.2+ (mesh protocol v2) |
+| **Version** | 1.2.0+ (mesh protocol v2) |
 | **Platforms** | Android (primary), iOS scaffolded |
 | **Workspace path** | `C:\netless` (folder name is historical; product is Bitconnect) |
 
