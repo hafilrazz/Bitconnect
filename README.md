@@ -191,10 +191,10 @@ dist/
 
 | Item | Value | Why |
 |---|---|---|
-| Android `applicationId` | `app.netless.netless` | Stable installs/upgrades |
-| Flutter package name | `netless` | Import / path stability |
-| Secure storage keys | `netless_*` | Existing identities still load |
-| Protocol tags | `netless-e2e-v1`, magic `NT` | Wire compatibility |
+| Android `applicationId` | `app.bitconnect.bitconnect` | Stable installs/upgrades |
+| Flutter package name | `bitconnect` | Import / path stability |
+| Secure storage keys | `bitconnect_*` | Existing identities still load |
+| Protocol tags | `bitconnect-e2e-v1`, magic `NT` | Wire compatibility |
 
 ---
 
