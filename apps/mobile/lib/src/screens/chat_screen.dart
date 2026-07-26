@@ -1,10 +1,17 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:mesh_protocol/mesh_protocol.dart';
 
 import '../mesh_controller.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/status_chip.dart';
+import 'image_viewer_screen.dart';
+import 'qr_screen.dart';
+import 'settings_screen.dart';
 
-/// Local BLE / sim mesh channel UI (`#local`).
+/// Local BLE / sim mesh channel UI.
 class LocalMeshPage extends StatefulWidget {
   const LocalMeshPage({super.key, required this.controller});
 
@@ -82,14 +89,78 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
     }
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: ImageSource.gallery,
+        // Compressor will downscale to mesh limits (~448px / ~45KB)
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 90,
+      );
+      if (file == null) return;
+      if (!c.meshOn) await c.startMesh();
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Compressing and sending image over mesh…'),
+        ),
+      );
+      await c.sendImageBytes(Uint8List.fromList(bytes), filename: file.name);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image sent')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final msgs = c.messagesForActiveChannel;
+    final encrypted = c.channelKeyB64.containsKey(c.activeChannelId);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('#local'),
+        title: Row(
+          children: [
+            Image.asset('assets/branding/app_logo.png', width: 28, height: 28),
+            const SizedBox(width: 8),
+            Flexible(child: Text(c.activeChannelName)),
+            if (encrypted) ...[
+              const SizedBox(width: 6),
+              const Icon(Icons.lock, size: 16),
+            ],
+          ],
+        ),
         actions: [
+          IconButton(
+            tooltip: 'QR ID',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => QrShareScreen(controller: c),
+                ),
+              );
+            },
+            icon: const Icon(Icons.qr_code_2),
+          ),
+          IconButton(
+            tooltip: 'Settings / channels',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => SettingsScreen(controller: c),
+                ),
+              );
+            },
+            icon: const Icon(Icons.tune),
+          ),
           PopupMenuButton<String>(
             onSelected: (v) async {
               if (v == 'fake' || v == 'ble') {
@@ -154,18 +225,46 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
                         active: c.meshOn,
                       ),
                       StatusChip(
-                        label: c.mode == TransportMode.ble ? 'Bluetooth' : 'Simulator',
+                        label: c.mode == TransportMode.ble
+                            ? 'Bluetooth'
+                            : 'Simulator',
                         active: true,
                         activeColor: theme.colorScheme.primary,
                       ),
+                      if (c.ferryQueued > 0)
+                        StatusChip(
+                          label: 'Ferry ${c.ferryQueued}',
+                          active: true,
+                          activeColor: Colors.orangeAccent,
+                        ),
+                      StatusChip(
+                        label: c.powerMode.name,
+                        active: c.powerMode == PowerMode.performance,
+                        activeColor: Colors.amber,
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    c.mode == TransportMode.ble
-                        ? 'High-TX BLE + multi-hop mesh. Keep the app open; more phones extend range.'
-                        : 'Simulator mode for demos without radios. Switch to Bluetooth in ⋮ menu.',
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.white60),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 36,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: c.channelNames
+                          .map(
+                            (n) => Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                label: Text(n, style: const TextStyle(fontSize: 12)),
+                                selected: c.activeChannelName == n,
+                                onSelected: (_) {
+                                  c.setActiveChannel(n);
+                                  setState(() {});
+                                },
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
                   ),
                 ],
               ),
@@ -177,7 +276,8 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
               child: ListTile(
                 dense: true,
                 leading: const Icon(Icons.error_outline, size: 18),
-                title: Text(c.lastError!, style: const TextStyle(fontSize: 12)),
+                title:
+                    Text(c.lastError!, style: const TextStyle(fontSize: 12)),
                 trailing: IconButton(
                   icon: const Icon(Icons.close, size: 18),
                   onPressed: () {
@@ -188,19 +288,47 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
               ),
             ),
           Expanded(
-            child: c.messages.isEmpty
+            child: msgs.isEmpty
                 ? _EmptyLocal(meshOn: c.meshOn, onStart: _busy ? null : _toggleMesh)
                 : ListView.builder(
                     controller: _scroll,
                     padding: const EdgeInsets.all(12),
-                    itemCount: c.messages.length,
+                    itemCount: msgs.length,
                     itemBuilder: (context, i) {
-                      final m = c.messages[i];
-                      return MessageBubble(
-                        isLocal: m.isLocal,
-                        header: '${m.nickname} · ${m.fingerprint}',
-                        body: m.text,
-                        timeLabel: formatEpoch(m.packet.timestamp),
+                      final m = msgs[i];
+                      final img = m.mediaBytes ??
+                          (m.mediaId != null
+                              ? c.mediaGallery[m.mediaId!]
+                              : null);
+                      return GestureDetector(
+                        onTap: () {
+                          if (img != null && img.isNotEmpty) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ImageViewerScreen(
+                                  bytes: img,
+                                  title: m.text,
+                                ),
+                              ),
+                            );
+                            if (!m.isLocal && c.meshOn) c.markRead(m);
+                            return;
+                          }
+                          if (!m.isLocal && c.meshOn) c.markRead(m);
+                        },
+                        child: MessageBubble(
+                          isLocal: m.isLocal,
+                          locked: encrypted ||
+                              (m.packet.flags & MeshConstants.flagEncrypted) !=
+                                  0,
+                          header: '${m.nickname} · ${m.fingerprint}',
+                          body: m.text,
+                          timeLabel: formatEpoch(m.packet.timestamp),
+                          status: m.isLocal
+                              ? (c.delivery[m.msgIdHex] ?? m.status)
+                              : null,
+                          imageBytes: img,
+                        ),
                       );
                     },
                   ),
@@ -208,7 +336,7 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
               child: Row(
                 children: [
                   IconButton.filledTonal(
@@ -224,20 +352,26 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
                             ? Icons.wifi_tethering
                             : Icons.wifi_tethering_off),
                   ),
-                  const SizedBox(width: 8),
+                  IconButton(
+                    tooltip: 'Send photo',
+                    onPressed: _pickImage,
+                    icon: const Icon(Icons.image_outlined),
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _text,
                       textInputAction: TextInputAction.send,
-                      decoration: const InputDecoration(
-                        hintText: 'Message everyone on #local',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        hintText: encrypted
+                            ? 'Encrypted message on ${c.activeChannelName}'
+                            : 'Message ${c.activeChannelName}',
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                       onSubmitted: (_) => _send(),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   IconButton.filled(
                     onPressed: _send,
                     icon: const Icon(Icons.send),
@@ -279,7 +413,7 @@ class _EmptyLocal extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               meshOn
-                  ? 'Say hi on #local. Anyone in radio range of the mesh can read this channel — it is not private.'
+                  ? 'Public channels are readable by the mesh. Use encrypted channels in Settings for group E2E.'
                   : 'Turn on mesh to discover nearby Bitconnect users and relay messages.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white54, height: 1.35),
@@ -299,15 +433,3 @@ class _EmptyLocal extends StatelessWidget {
   }
 }
 
-/// Kept for any old routes; prefer [HomeShell].
-class ChatScreen extends StatelessWidget {
-  const ChatScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // Legacy entry — redirect users via home shell in app.dart
-    return const Scaffold(
-      body: Center(child: Text('Use HomeShell')),
-    );
-  }
-}

@@ -10,6 +10,7 @@ build/
 *.iml
 .idea/
 .vscode/
+**/*.iml
 
 # OS
 .DS_Store
@@ -19,3 +20,9 @@ Thumbs.db
 *.jks
 key.properties
 local.properties
+
+# Local one-off bootstrap scripts (do not re-add)
+tool/
+
+# Optional: keep release APKs local only
+# dist/*.apk

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../mesh_controller.dart';
 import '../providers.dart';
+import '../theme/app_theme.dart';
 import 'chat_screen.dart';
 import 'internet_dm_screen.dart';
 
@@ -36,8 +37,23 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   Widget build(BuildContext context) {
     final c = _controller;
     if (c == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: AppTheme.surface,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset('assets/branding/app_logo.png', width: 64, height: 64),
+              const SizedBox(height: 16),
+              const CircularProgressIndicator(color: AppTheme.brandGreen),
+              const SizedBox(height: 12),
+              Text(
+                'Starting Bitconnect…',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -54,13 +70,25 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: [
           NavigationDestination(
-            icon: Icon(
-              c.meshOn ? Icons.wifi_tethering : Icons.wifi_tethering_off,
+            icon: Badge(
+              isLabelVisible: c.meshOn,
+              smallSize: 8,
+              backgroundColor: AppTheme.brandGreen,
+              child: Icon(
+                c.meshOn ? Icons.wifi_tethering : Icons.wifi_tethering_off_outlined,
+              ),
             ),
-            label: 'Local mesh',
+            selectedIcon: const Icon(Icons.wifi_tethering),
+            label: 'Local',
           ),
           NavigationDestination(
-            icon: Icon(c.internetOn ? Icons.lock : Icons.public),
+            icon: Badge(
+              isLabelVisible: c.internetOn,
+              smallSize: 8,
+              backgroundColor: AppTheme.brandGreen,
+              child: Icon(c.internetOn ? Icons.lock : Icons.public_outlined),
+            ),
+            selectedIcon: const Icon(Icons.lock),
             label: 'Worldwide',
           ),
         ],

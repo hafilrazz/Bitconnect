@@ -78,7 +78,8 @@ class PacketCodec {
       throw FormatException('bad magic: 0x${magic.toRadixString(16)}');
     }
     final version = data[o++];
-    if (version != MeshConstants.version) {
+    // Accept v1 and current version for upgrade path.
+    if (version < 1 || version > MeshConstants.version) {
       throw FormatException('unsupported version: $version');
     }
     final typeVal = data[o++];

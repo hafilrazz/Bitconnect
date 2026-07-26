@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../identity_store.dart';
 import '../mesh_controller.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/status_chip.dart';
+import 'qr_screen.dart';
 
 class InternetDmScreen extends StatefulWidget {
   const InternetDmScreen({
@@ -339,9 +341,14 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
         SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
             child: Row(
               children: [
+                IconButton(
+                  tooltip: 'Send image',
+                  onPressed: c.activePeerId == null ? null : _pickImage,
+                  icon: const Icon(Icons.image_outlined),
+                ),
                 Expanded(
                   child: TextField(
                     controller: _text,
@@ -374,6 +381,19 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Worldwide E2E'),
+          actions: [
+            IconButton(
+              tooltip: 'QR',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => QrShareScreen(controller: c),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.qr_code_2),
+            ),
+          ],
         ),
         body: body,
       );
@@ -392,5 +412,22 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
       ),
       body: body,
     );
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 640,
+        maxHeight: 640,
+        imageQuality: 55,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      await c.sendInternetMedia(Uint8List.fromList(bytes), name: file.name);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 }

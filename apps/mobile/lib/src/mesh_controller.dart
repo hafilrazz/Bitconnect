@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ import 'package:mesh_protocol/mesh_protocol.dart';
 import 'package:mesh_transport/mesh_transport.dart';
 
 import 'identity_store.dart';
+import 'image_codec_util.dart';
 
 enum TransportMode { fake, ble }
 
@@ -24,10 +26,17 @@ class MeshController extends ChangeNotifier {
   TransportMode mode =
       (!kIsWeb && Platform.isAndroid) ? TransportMode.ble : TransportMode.fake;
 
+  PowerMode powerMode = PowerMode.balanced;
+
   MeshNode? _node;
   MeshTransport? _transport;
   final List<ChatMessage> messages = [];
+  /// msgIdHex -> status for local sends
+  final Map<String, DeliveryStatus> delivery = {};
+  /// mediaId -> image bytes for UI
+  final Map<String, Uint8List> mediaGallery = {};
   StreamSubscription<ChatMessage>? _msgSub;
+  StreamSubscription<AckEvent>? _ackSub;
   bool meshOn = false;
   String? lastError;
   int peerCount = 0;
@@ -35,6 +44,13 @@ class MeshController extends ChangeNotifier {
 
   SimFabric? _sim;
   final List<MeshNode> _simRelays = [];
+
+  // Channels
+  final List<String> channelNames = ['#local', '#general', '#alerts'];
+  String activeChannelName = '#local';
+  int get activeChannelId => Channels.idForName(activeChannelName);
+  /// channelId -> key b64 for encrypted local channels / groups
+  final Map<int, String> channelKeyB64 = {};
 
   // Internet E2E
   InternetE2eService? _internet;
@@ -46,7 +62,14 @@ class MeshController extends ChangeNotifier {
   String? activePeerId;
   List<Contact> contacts = [];
 
+  // Groups (internet-style shared key groups for local mesh too)
+  final List<GroupInfo> groups = [];
+
   String get netlessId => appIdentity.netlessId;
+  int get ferryQueued => _node?.ferry.length ?? 0;
+
+  List<ChatMessage> get messagesForActiveChannel =>
+      messages.where((m) => m.channelId == activeChannelId).toList();
 
   Future<void> startMesh() async {
     lastError = null;
@@ -84,10 +107,26 @@ class MeshController extends ChangeNotifier {
         identity: identity,
         transport: _transport!,
         nickname: nickname,
+        powerMode: powerMode,
       );
-      _msgSub = _node!.messages.listen((m) {
-        messages.add(m);
-        notifyListeners();
+      _applyChannelKeys();
+      _msgSub = _node!.messages.listen(_onMeshMessage);
+      _ackSub = _node!.acks.listen((a) {
+        final st = a.type == PacketType.read
+            ? DeliveryStatus.read
+            : DeliveryStatus.delivered;
+        final prev = delivery[a.refMsgIdHex];
+        if (prev == null ||
+            prev.index < st.index ||
+            (prev == DeliveryStatus.sent && st == DeliveryStatus.delivered)) {
+          delivery[a.refMsgIdHex] = st;
+          for (final m in messages) {
+            if (m.isLocal && m.msgIdHex == a.refMsgIdHex) {
+              m.status = st;
+            }
+          }
+          notifyListeners();
+        }
       });
       await _node!.start();
       meshOn = true;
@@ -96,6 +135,10 @@ class MeshController extends ChangeNotifier {
         if (n != peerCount) {
           peerCount = n;
           notifyListeners();
+        }
+        // When peers appear, flush ferry
+        if (n > 0) {
+          unawaited(_node?.flushFerry() ?? Future.value());
         }
       });
       peerCount = _transport?.peerIds.length ?? 0;
@@ -108,11 +151,23 @@ class MeshController extends ChangeNotifier {
     }
   }
 
+  void _applyChannelKeys() {
+    final node = _node;
+    if (node == null) return;
+    for (final e in channelKeyB64.entries) {
+      try {
+        node.setChannelKey(e.key, GroupCrypto.decodeKeyB64(e.value));
+      } catch (_) {}
+    }
+  }
+
   Future<void> stopMesh() async {
     _peerTimer?.cancel();
     _peerTimer = null;
     await _msgSub?.cancel();
     _msgSub = null;
+    await _ackSub?.cancel();
+    _ackSub = null;
     await _node?.dispose();
     _node = null;
     for (final r in _simRelays) {
@@ -137,7 +192,135 @@ class MeshController extends ChangeNotifier {
       throw StateError('Mesh is off');
     }
     node.nickname = nickname;
-    await node.sendChat(text);
+    final encrypt = channelKeyB64.containsKey(activeChannelId);
+    final msg = await node.sendChat(
+      text,
+      channelId: activeChannelId,
+      encrypt: encrypt,
+      requestAck: true,
+    );
+    delivery[msg.msgIdHex] = DeliveryStatus.sent;
+    notifyListeners();
+  }
+
+  void _onMeshMessage(ChatMessage m) {
+    // Images / files: always one bubble with full bytes when present
+    if (m.mediaBytes != null && m.mediaBytes!.isNotEmpty) {
+      final id = m.mediaId ?? m.msgIdHex;
+      mediaGallery[id] = m.mediaBytes!;
+      m.mediaId = id;
+      m.isMedia = true;
+      // Dedupe by mediaId
+      final idx = messages.indexWhere((x) => x.mediaId == id);
+      if (idx >= 0) {
+        messages[idx].mediaBytes = m.mediaBytes;
+        messages[idx].plainText = m.plainText;
+        notifyListeners();
+        return;
+      }
+      messages.add(m);
+      notifyListeners();
+      return;
+    }
+
+    messages.add(m);
+    notifyListeners();
+  }
+
+  /// Compress + binary multi-fragment send. One local bubble with the photo.
+  Future<void> sendImageBytes(Uint8List bytes,
+      {String filename = 'photo.jpg'}) async {
+    final node = _node;
+    if (node == null || !meshOn) throw StateError('Mesh is off');
+
+    final data = compressForMesh(bytes);
+    final safeName = filename.toLowerCase().endsWith('.jpg') ||
+            filename.toLowerCase().endsWith('.jpeg')
+        ? filename
+        : 'photo.jpg';
+
+    final file = FilePacket(
+      fileName: safeName,
+      mimeType: 'image/jpeg',
+      content: data,
+    );
+
+    final msg = await node.sendFile(
+      file: file,
+      channelId: activeChannelId,
+      emitToUi: true,
+    );
+    final id = msg.mediaId ?? msg.msgIdHex;
+    mediaGallery[id] = data;
+    msg.mediaBytes = data;
+    msg.mediaId = id;
+    msg.isMedia = true;
+    // Ensure it is in the list once
+    messages.removeWhere((m) => m.mediaId == id);
+    messages.add(msg);
+    delivery[msg.msgIdHex] = DeliveryStatus.sent;
+    notifyListeners();
+  }
+
+  Future<void> markRead(ChatMessage m) async {
+    final node = _node;
+    if (node == null || !meshOn || m.isLocal) return;
+    await node.sendReceipt(
+      type: PacketType.read,
+      refMsgId: m.packet.msgId,
+      channelId: m.channelId,
+    );
+  }
+
+  void setActiveChannel(String name) {
+    activeChannelName = Channels.normalizeName(name);
+    if (!channelNames.contains(activeChannelName)) {
+      channelNames.add(activeChannelName);
+    }
+    notifyListeners();
+  }
+
+  void addChannel(String name) {
+    final n = Channels.normalizeName(name);
+    if (!channelNames.contains(n)) channelNames.add(n);
+    activeChannelName = n;
+    notifyListeners();
+  }
+
+  /// Create encrypted group/channel key and set as active channel.
+  String createEncryptedChannel(String name) {
+    final n = Channels.normalizeName(name);
+    final id = Channels.idForName(n);
+    final key = GroupCrypto.randomKey();
+    final b64 = GroupCrypto.encodeKeyB64(key);
+    channelKeyB64[id] = b64;
+    if (!channelNames.contains(n)) channelNames.add(n);
+    activeChannelName = n;
+    _node?.setChannelKey(id, key);
+    groups.add(GroupInfo(name: n, channelId: id, keyB64: b64));
+    notifyListeners();
+    return b64;
+  }
+
+  void joinEncryptedChannel(String name, String keyB64) {
+    final n = Channels.normalizeName(name);
+    final id = Channels.idForName(n);
+    final key = GroupCrypto.decodeKeyB64(keyB64);
+    channelKeyB64[id] = GroupCrypto.encodeKeyB64(key);
+    if (!channelNames.contains(n)) channelNames.add(n);
+    activeChannelName = n;
+    _node?.setChannelKey(id, key);
+    groups.removeWhere((g) => g.channelId == id);
+    groups.add(GroupInfo(name: n, channelId: id, keyB64: channelKeyB64[id]!));
+    notifyListeners();
+  }
+
+  void setPowerMode(PowerMode mode) {
+    powerMode = mode;
+    if (_node != null) {
+      _node!.powerMode = mode;
+    }
+    notifyListeners();
   }
 
   Future<void> injectSimulatedRemote(String text,
@@ -149,7 +332,7 @@ class MeshController extends ChangeNotifier {
     _sim!.link(leaf.id, 'relay2');
     final sender = MeshNode(identity: id, transport: leaf, nickname: nick);
     await sender.start();
-    await sender.sendChat(text);
+    await sender.sendChat(text, channelId: activeChannelId);
     await Future<void>.delayed(const Duration(milliseconds: 80));
     await sender.dispose();
   }
@@ -168,7 +351,6 @@ class MeshController extends ChangeNotifier {
       );
       _inetSub = _internet!.messages.listen((dm) {
         internetMessages.add(dm);
-        // auto-select peer on first inbound
         if (!dm.isLocal && activePeerId == null) {
           activePeerId = dm.peerNetlessId;
         }
@@ -214,6 +396,15 @@ class MeshController extends ChangeNotifier {
     await inet.sendDm(recipientNetlessId: peer, text: text);
   }
 
+  Future<void> sendInternetMedia(Uint8List bytes, {String name = 'photo.jpg'}) async {
+    // Base64 embed in E2E text payload (size-capped)
+    if (bytes.length > 40 * 1024) {
+      throw StateError('Image too large (max ~40KB for E2E demo)');
+    }
+    final b64 = base64Encode(bytes);
+    await sendInternetDm('MEDIA:image/jpeg:$name:$b64');
+  }
+
   void setActivePeer(String netlessId) {
     activePeerId = netlessId.toLowerCase().replaceAll(RegExp(r'[^0-9a-f]'), '');
     notifyListeners();
@@ -234,7 +425,8 @@ class MeshController extends ChangeNotifier {
     final peer = activePeerId;
     if (peer == null) return const [];
     return internetMessages
-        .where((m) => m.peerNetlessId == peer || (m.isLocal && m.peerNetlessId == peer))
+        .where((m) =>
+            m.peerNetlessId == peer || (m.isLocal && m.peerNetlessId == peer))
         .toList();
   }
 
@@ -244,4 +436,15 @@ class MeshController extends ChangeNotifier {
     unawaited(stopInternet());
     super.dispose();
   }
+}
+
+class GroupInfo {
+  GroupInfo({
+    required this.name,
+    required this.channelId,
+    required this.keyB64,
+  });
+  final String name;
+  final int channelId;
+  final String keyB64;
 }

@@ -50,7 +50,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 32),
-              Icon(Icons.hub_outlined, size: 56, color: theme.colorScheme.primary),
+              Image.asset('assets/branding/app_logo.png', width: 88, height: 88),
               const SizedBox(height: 16),
               Text(
                 'Bitconnect',

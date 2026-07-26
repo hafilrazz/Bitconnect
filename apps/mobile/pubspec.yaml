@@ -1,7 +1,7 @@
 name: netless
 description: Bitconnect — offline BLE mesh chat + worldwide E2E DMs.
 publish_to: none
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -23,6 +23,14 @@ dependencies:
   mesh_internet:
     path: ../../packages/mesh_internet
   permission_handler: ^11.3.1
+  qr_flutter: ^4.1.0
+  # Camera stream + QR-only decode for contact IDs
+  camera: ^0.11.0
+  google_mlkit_barcode_scanning: ^0.13.0
+  image_picker: ^1.1.2
+  path_provider: ^2.1.4
+  path: ^1.9.0
+  image: ^4.3.0
 
 dev_dependencies:
   flutter_test:
@@ -31,3 +39,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/branding/app_logo.png

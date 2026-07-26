@@ -5,6 +5,6 @@ void main() {
   test('channels and constants', () {
     expect(Channels.local, 1);
     expect(Channels.idForName('#local'), 1);
-    expect(MeshConstants.maxTtl, 7);
+    expect(MeshConstants.maxTtl, 8);
   });
 }

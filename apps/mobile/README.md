@@ -1,24 +1,27 @@
-﻿# Bitconnect mobile app
+# Bitconnect mobile app
 
-Flutter client for Bitconnect (BLE mesh + worldwide E2E DMs).
+Flutter client for **Bitconnect** — BLE mesh chat + worldwide E2E DMs.
 
-See the [repo README](../../README.md) for architecture and setup.
+Full docs: **[../../README.md](../../README.md)**
 
 ## Run
 
-```bash
-# Ensure Flutter is on PATH
+```powershell
+$env:PATH = "C:\Users\hafil\flutter\bin;$env:PATH"
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot"
 flutter pub get
 flutter run
 ```
 
-### Demo without radios
+## Release APK (smaller, arm64)
 
-1. Launch the app, pick a nickname.
-2. Tap the tether icon to turn **mesh on** (default transport is Fake/sim).
-3. Menu → **Inject simulated remote** to receive a multi-hop message through virtual relays.
-4. Type in `#local` to post signed messages.
+```powershell
+flutter build apk --release --split-per-abi
+copy build\app\outputs\flutter-apk\app-arm64-v8a-release.apk ..\..\dist\bitconnect-release.apk
+```
 
-### Real BLE
+## Tabs
 
-Menu → **Transport: BLE**, then mesh on. Requires physical devices and Bluetooth permissions.
+- **Local** — mesh channels, photos, receipts  
+- **Worldwide** — E2E DMs, QR / paste contacts  
+- **Settings** — power mode, encrypted groups  
