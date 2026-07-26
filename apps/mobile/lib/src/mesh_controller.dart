@@ -208,7 +208,7 @@ class MeshController extends ChangeNotifier {
       throw StateError('Internet E2E is off');
     }
     if (peer == null || peer.isEmpty) {
-      throw StateError('Pick a contact (recipient Netless ID)');
+      throw StateError('Pick a contact (recipient Bitconnect ID)');
     }
     inet.nickname = nickname;
     await inet.sendDm(recipientNetlessId: peer, text: text);
@@ -222,7 +222,7 @@ class MeshController extends ChangeNotifier {
   Future<void> addContact(Contact c) async {
     final id = c.netlessId.toLowerCase().replaceAll(RegExp(r'[^0-9a-f]'), '');
     if (id.length != 64) {
-      throw ArgumentError('Netless ID must be 64 hex chars (X25519 pubkey)');
+      throw ArgumentError('Bitconnect ID must be 64 hex chars (X25519 pubkey)');
     }
     contacts.removeWhere((x) => x.netlessId == id);
     contacts = [...contacts, Contact(name: c.name, netlessId: id)];

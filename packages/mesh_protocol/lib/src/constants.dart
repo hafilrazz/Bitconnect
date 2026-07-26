@@ -2,7 +2,8 @@
 class MeshConstants {
   static const int magic = 0x4E54; // 'NT'
   static const int version = 1;
-  static const int maxTtl = 7;
+  /// Multi-hop budget — more hops = larger *effective* mesh diameter.
+  static const int maxTtl = 8;
   static const int maxNicknameBytes = 24;
   static const int maxBodyBytes = 200;
   static const int publicKeyLength = 32;

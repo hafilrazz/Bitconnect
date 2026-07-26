@@ -5,14 +5,14 @@ import 'providers.dart';
 import 'screens/home_shell.dart';
 import 'screens/onboarding_screen.dart';
 
-class NetlessApp extends ConsumerWidget {
-  const NetlessApp({super.key});
+class BitconnectApp extends ConsumerWidget {
+  const BitconnectApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ready = ref.watch(identityReadyProvider);
     return MaterialApp(
-      title: 'Netless',
+      title: 'Bitconnect',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

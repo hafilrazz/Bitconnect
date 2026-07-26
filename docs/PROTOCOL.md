@@ -1,4 +1,6 @@
-# Netless mesh protocol v1
+# Bitconnect mesh protocol v1
+
+(Internal package / magic still use historical `netless` / `NT` markers for wire compatibility.)
 
 Application-level BLE gossip. Not Bluetooth SIG Mesh.
 

@@ -163,7 +163,7 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
                   const SizedBox(height: 6),
                   Text(
                     c.mode == TransportMode.ble
-                        ? 'Nearby phones form a mesh. Keep the app open for best results.'
+                        ? 'High-TX BLE + multi-hop mesh. Keep the app open; more phones extend range.'
                         : 'Simulator mode for demos without radios. Switch to Bluetooth in ⋮ menu.',
                     style: theme.textTheme.bodySmall?.copyWith(color: Colors.white60),
                   ),
@@ -280,7 +280,7 @@ class _EmptyLocal extends StatelessWidget {
             Text(
               meshOn
                   ? 'Say hi on #local. Anyone in radio range of the mesh can read this channel — it is not private.'
-                  : 'Turn on mesh to discover nearby Netless users and relay messages.',
+                  : 'Turn on mesh to discover nearby Bitconnect users and relay messages.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white54, height: 1.35),
             ),

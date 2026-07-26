@@ -1,6 +1,6 @@
-﻿# Netless mobile app
+﻿# Bitconnect mobile app
 
-Flutter client for the Netless BLE mesh chat.
+Flutter client for Bitconnect (BLE mesh + worldwide E2E DMs).
 
 See the [repo README](../../README.md) for architecture and setup.
 

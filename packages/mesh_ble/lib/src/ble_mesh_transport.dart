@@ -4,18 +4,16 @@ import 'dart:typed_data';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:mesh_protocol/mesh_protocol.dart';
 
-/// BLE transport scaffold.
+import 'mesh_ble_config.dart';
+
+/// Central-role BLE transport (non-Android dual-role path / fallback).
 ///
-/// Uses flutter_blue_plus central role to discover peers advertising the
-/// Netless service and exchange packets over a GATT characteristic.
-/// Full dual-role (peripheral + multi-central) mesh is intentionally
-/// incremental: this class provides a working single-hop path and clear
-/// extension points for peripheral advertising via platform channels later.
+/// Aggressive low-latency scan + RSSI-ordered connects for better reach.
 class BleMeshTransport implements MeshTransport {
   BleMeshTransport({
     this.serviceUuid = MeshConstants.serviceUuid,
     this.characteristicUuid = MeshConstants.characteristicUuid,
-    this.maxPeers = 6,
+    this.maxPeers = MeshBleConfig.maxPeers,
   });
 
   final String serviceUuid;
@@ -25,9 +23,11 @@ class BleMeshTransport implements MeshTransport {
   final _inbound = StreamController<MeshInbound>.broadcast();
   final Map<String, BluetoothDevice> _devices = {};
   final Map<String, BluetoothCharacteristic> _chars = {};
+  final Set<String> _connecting = {};
   StreamSubscription<List<ScanResult>>? _scanSub;
   StreamSubscription<OnConnectionStateChangedEvent>? _connSub;
   bool _up = false;
+  bool _handlingScan = false;
 
   Guid get _svcGuid => Guid(serviceUuid);
   Guid get _chrGuid => Guid(characteristicUuid);
@@ -55,84 +55,120 @@ class BleMeshTransport implements MeshTransport {
         final id = e.device.remoteId.str;
         _devices.remove(id);
         _chars.remove(id);
+        _connecting.remove(id);
       }
     });
 
-    await FlutterBluePlus.startScan(
-      withServices: [_svcGuid],
-      timeout: const Duration(seconds: 4),
-      continuousUpdates: true,
-    );
+    await _startScan();
     _scanSub = FlutterBluePlus.scanResults.listen(_onScanResults);
-    // Keep periodic rescan
     unawaited(_scanLoop());
     _up = true;
+  }
+
+  Future<void> _startScan() async {
+    try {
+      await FlutterBluePlus.startScan(
+        withServices: [_svcGuid],
+        timeout: MeshBleConfig.scanWindow,
+        continuousUpdates: true,
+        androidScanMode: AndroidScanMode.lowLatency,
+      );
+    } catch (_) {
+      try {
+        await FlutterBluePlus.startScan(
+          timeout: MeshBleConfig.scanWindow,
+          continuousUpdates: true,
+          androidScanMode: AndroidScanMode.lowLatency,
+        );
+      } catch (_) {}
+    }
   }
 
   Future<void> _scanLoop() async {
     while (_up) {
       try {
         if (!FlutterBluePlus.isScanningNow) {
-          await FlutterBluePlus.startScan(
-            withServices: [_svcGuid],
-            timeout: const Duration(seconds: 4),
-          );
+          await _startScan();
         }
       } catch (_) {}
-      await Future<void>.delayed(const Duration(seconds: 6));
+      await Future<void>.delayed(MeshBleConfig.scanRestartInterval);
     }
   }
 
   Future<void> _onScanResults(List<ScanResult> results) async {
-    if (!_up) return;
-    for (final r in results) {
-      if (_devices.length >= maxPeers) break;
-      final id = r.device.remoteId.str;
-      if (_devices.containsKey(id)) continue;
-      try {
-        await r.device.connect(timeout: const Duration(seconds: 8));
-        final services = await r.device.discoverServices();
-        BluetoothCharacteristic? target;
-        for (final s in services) {
-          if (s.uuid == _svcGuid) {
-            for (final c in s.characteristics) {
-              if (c.uuid == _chrGuid) {
-                target = c;
-                break;
+    if (!_up || _handlingScan) return;
+    _handlingScan = true;
+    try {
+      final sorted = List<ScanResult>.from(results)
+        ..sort((a, b) => b.rssi.compareTo(a.rssi));
+
+      for (final r in sorted) {
+        if (_devices.length >= maxPeers) break;
+        if (r.rssi < MeshBleConfig.minConnectRssi) continue;
+        final id = r.device.remoteId.str;
+        if (_devices.containsKey(id) || _connecting.contains(id)) continue;
+
+        _connecting.add(id);
+        try {
+          await r.device.connect(
+            timeout: MeshBleConfig.connectTimeout,
+            autoConnect: false,
+          );
+          try {
+            await r.device.requestConnectionPriority(
+              connectionPriorityRequest: ConnectionPriority.high,
+            );
+          } catch (_) {}
+          try {
+            await r.device.requestMtu(MeshBleConfig.preferredMtu);
+          } catch (_) {}
+
+          final services = await r.device.discoverServices();
+          BluetoothCharacteristic? target;
+          for (final s in services) {
+            if (s.uuid == _svcGuid) {
+              for (final c in s.characteristics) {
+                if (c.uuid == _chrGuid) {
+                  target = c;
+                  break;
+                }
               }
             }
           }
+          target ??= services
+              .expand((s) => s.characteristics)
+              .cast<BluetoothCharacteristic?>()
+              .firstWhere(
+                (c) =>
+                    c != null &&
+                    (c.properties.write || c.properties.writeWithoutResponse) &&
+                    c.properties.notify,
+                orElse: () => null,
+              );
+          if (target == null) {
+            await r.device.disconnect();
+            continue;
+          }
+          await target.setNotifyValue(true);
+          target.onValueReceived.listen((value) {
+            if (value.isEmpty) return;
+            _inbound.add(MeshInbound(
+              fromPeerId: id,
+              bytes: Uint8List.fromList(value),
+            ));
+          });
+          _devices[id] = r.device;
+          _chars[id] = target;
+        } catch (_) {
+          try {
+            await r.device.disconnect();
+          } catch (_) {}
+        } finally {
+          _connecting.remove(id);
         }
-        // Fallback: first writable+notify char if UUID not found (dev)
-        target ??= services
-            .expand((s) => s.characteristics)
-            .cast<BluetoothCharacteristic?>()
-            .firstWhere(
-              (c) =>
-                  c != null &&
-                  (c.properties.write || c.properties.writeWithoutResponse) &&
-                  c.properties.notify,
-              orElse: () => null,
-            );
-        if (target == null) {
-          await r.device.disconnect();
-          continue;
-        }
-        await target.setNotifyValue(true);
-        target.onValueReceived.listen((value) {
-          if (value.isEmpty) return;
-          _inbound.add(MeshInbound(
-            fromPeerId: id,
-            bytes: Uint8List.fromList(value),
-          ));
-        });
-        _devices[id] = r.device;
-        _chars[id] = target;
-      } catch (_) {
-        try {
-          await r.device.disconnect();
-        } catch (_) {}
       }
+    } finally {
+      _handlingScan = false;
     }
   }
 
@@ -153,6 +189,7 @@ class BleMeshTransport implements MeshTransport {
     }
     _devices.clear();
     _chars.clear();
+    _connecting.clear();
   }
 
   @override

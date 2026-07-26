@@ -180,7 +180,7 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Your Netless ID copied')),
+                                content: Text('Your Bitconnect ID copied')),
                           );
                         },
                         icon: const Icon(Icons.copy, size: 16),
@@ -270,7 +270,7 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
                 TextField(
                   controller: _peerId,
                   decoration: const InputDecoration(
-                    labelText: 'Their Netless ID',
+                    labelText: 'Their Bitconnect ID',
                     helperText: '64 hex characters — paste from their “Copy my ID”',
                     isDense: true,
                     border: OutlineInputBorder(),

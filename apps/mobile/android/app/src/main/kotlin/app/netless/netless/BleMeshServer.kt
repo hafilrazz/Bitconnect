@@ -155,17 +155,28 @@ class BleMeshServer(
         characteristic = char
 
         advertiser = bt.bluetoothLeAdvertiser
+        // Low-latency + max TX power: best practical software boost for discovery range.
         val settings = AdvertiseSettings.Builder()
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
             .setConnectable(true)
             .setTimeout(0)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
+            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
             .build()
         val data = AdvertiseData.Builder()
             .setIncludeDeviceName(false)
+            .setIncludeTxPowerLevel(true)
             .addServiceUuid(ParcelUuid(SERVICE_UUID))
             .build()
-        advertiser?.startAdvertising(settings, data, advertiseCallback)
+        // Empty scan response keeps advertising payload small and connectable.
+        val scanResponse = AdvertiseData.Builder()
+            .setIncludeDeviceName(false)
+            .build()
+        try {
+            advertiser?.startAdvertising(settings, data, scanResponse, advertiseCallback)
+        } catch (_: Exception) {
+            // Fallback if dual-payload advertising fails on some OEMs.
+            advertiser?.startAdvertising(settings, data, advertiseCallback)
+        }
 
         running = true
         emitPeers()

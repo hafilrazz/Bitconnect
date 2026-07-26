@@ -7,14 +7,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:mesh_protocol/mesh_protocol.dart';
 
+import 'mesh_ble_config.dart';
+
 /// Full dual-role BLE transport for Android:
-/// - Peripheral: native GATT server + advertise (MethodChannel)
-/// - Central: flutter_blue_plus scan/connect/write to peer servers
+/// - Peripheral: native GATT server + high-TX advertise (MethodChannel)
+/// - Central: aggressive scan/connect ordered by RSSI for range + reliability
 class AndroidBleMeshTransport implements MeshTransport {
   AndroidBleMeshTransport({
     this.serviceUuid = MeshConstants.serviceUuid,
     this.characteristicUuid = MeshConstants.characteristicUuid,
-    this.maxPeers = 6,
+    this.maxPeers = MeshBleConfig.maxPeers,
   });
 
   static const _methods = MethodChannel('app.netless/ble_mesh');
@@ -28,10 +30,12 @@ class AndroidBleMeshTransport implements MeshTransport {
   final Map<String, BluetoothDevice> _centrals = {};
   final Map<String, BluetoothCharacteristic> _remoteChars = {};
   final Set<String> _serverPeers = {};
+  final Set<String> _connecting = {};
 
   StreamSubscription<dynamic>? _eventSub;
   StreamSubscription<List<ScanResult>>? _scanSub;
   bool _up = false;
+  bool _handlingScan = false;
 
   Guid get _svcGuid => Guid(serviceUuid);
   Guid get _chrGuid => Guid(characteristicUuid);
@@ -57,7 +61,6 @@ class AndroidBleMeshTransport implements MeshTransport {
       throw StateError('Bluetooth LE not supported');
     }
 
-    // Wait for adapter on (user may need to enable BT).
     final state = await FlutterBluePlus.adapterState
         .where((s) =>
             s == BluetoothAdapterState.on ||
@@ -83,15 +86,32 @@ class AndroidBleMeshTransport implements MeshTransport {
 
     _eventSub = _events.receiveBroadcastStream().listen(_onNativeEvent);
 
-    await FlutterBluePlus.startScan(
-      withServices: [_svcGuid],
-      timeout: const Duration(seconds: 5),
-      continuousUpdates: true,
-      androidUsesFineLocation: false,
-    );
+    await _startScan();
     _scanSub = FlutterBluePlus.scanResults.listen(_onScanResults);
     unawaited(_scanLoop());
     _up = true;
+  }
+
+  Future<void> _startScan() async {
+    try {
+      await FlutterBluePlus.startScan(
+        withServices: [_svcGuid],
+        timeout: MeshBleConfig.scanWindow,
+        continuousUpdates: true,
+        androidUsesFineLocation: false,
+        androidScanMode: AndroidScanMode.lowLatency,
+      );
+    } catch (_) {
+      // Retry without service filter if OEM scan filter is flaky at distance.
+      try {
+        await FlutterBluePlus.startScan(
+          timeout: MeshBleConfig.scanWindow,
+          continuousUpdates: true,
+          androidUsesFineLocation: false,
+          androidScanMode: AndroidScanMode.lowLatency,
+        );
+      } catch (_) {}
+    }
   }
 
   void _onNativeEvent(dynamic event) {
@@ -122,63 +142,92 @@ class AndroidBleMeshTransport implements MeshTransport {
     while (_up) {
       try {
         if (!FlutterBluePlus.isScanningNow) {
-          await FlutterBluePlus.startScan(
-            withServices: [_svcGuid],
-            timeout: const Duration(seconds: 5),
-            androidUsesFineLocation: false,
-          );
+          await _startScan();
         }
       } catch (_) {}
-      await Future<void>.delayed(const Duration(seconds: 5));
+      await Future<void>.delayed(MeshBleConfig.scanRestartInterval);
     }
   }
 
   Future<void> _onScanResults(List<ScanResult> results) async {
-    if (!_up) return;
-    for (final r in results) {
-      if (_remoteChars.length >= maxPeers) break;
-      final id = r.device.remoteId.str;
-      if (_remoteChars.containsKey(id) || _centrals.containsKey(id)) continue;
-      // Skip connecting to self if address ever appears (rare).
-      try {
-        await r.device.connect(
-          timeout: const Duration(seconds: 10),
-          autoConnect: false,
-        );
-        await r.device.requestMtu(185);
-        final services = await r.device.discoverServices();
-        BluetoothCharacteristic? target;
-        for (final s in services) {
-          if (s.uuid == _svcGuid) {
-            for (final c in s.characteristics) {
-              if (c.uuid == _chrGuid) {
-                target = c;
-                break;
+    if (!_up || _handlingScan) return;
+    _handlingScan = true;
+    try {
+      // Strongest first for reliable links; still accept weak edge peers for multi-hop.
+      final sorted = List<ScanResult>.from(results)
+        ..sort((a, b) => b.rssi.compareTo(a.rssi));
+
+      for (final r in sorted) {
+        if (_remoteChars.length >= maxPeers) break;
+        if (r.rssi < MeshBleConfig.minConnectRssi) continue;
+
+        final id = r.device.remoteId.str;
+        if (_remoteChars.containsKey(id) ||
+            _centrals.containsKey(id) ||
+            _connecting.contains(id)) {
+          continue;
+        }
+
+        // If scanning without filter, only connect to our service UUID ads.
+        final hasService = r.advertisementData.serviceUuids
+            .any((u) => u == _svcGuid || u.str128 == _svcGuid.str128);
+        if (!hasService && r.advertisementData.serviceUuids.isNotEmpty) {
+          continue;
+        }
+
+        _connecting.add(id);
+        try {
+          await r.device.connect(
+            timeout: MeshBleConfig.connectTimeout,
+            autoConnect: false,
+          );
+          try {
+            await r.device.requestConnectionPriority(
+              connectionPriorityRequest: ConnectionPriority.high,
+            );
+          } catch (_) {}
+          try {
+            await r.device.requestMtu(MeshBleConfig.preferredMtu);
+          } catch (_) {}
+
+          final services = await r.device.discoverServices();
+          BluetoothCharacteristic? target;
+          for (final s in services) {
+            if (s.uuid == _svcGuid) {
+              for (final c in s.characteristics) {
+                if (c.uuid == _chrGuid) {
+                  target = c;
+                  break;
+                }
               }
             }
           }
+          if (target == null) {
+            await r.device.disconnect();
+            continue;
+          }
+          if (target.properties.notify) {
+            await target.setNotifyValue(true);
+            target.onValueReceived.listen((value) {
+              if (value.isEmpty) return;
+              _inbound.add(MeshInbound(
+                fromPeerId: id,
+                bytes: Uint8List.fromList(value),
+              ));
+            });
+          }
+          _centrals[id] = r.device;
+          _remoteChars[id] = target;
+        } catch (_) {
+          try {
+            await r.device.disconnect();
+          } catch (_) {}
+        } finally {
+          _connecting.remove(id);
         }
-        if (target == null) {
-          await r.device.disconnect();
-          continue;
-        }
-        if (target.properties.notify) {
-          await target.setNotifyValue(true);
-          target.onValueReceived.listen((value) {
-            if (value.isEmpty) return;
-            _inbound.add(MeshInbound(
-              fromPeerId: id,
-              bytes: Uint8List.fromList(value),
-            ));
-          });
-        }
-        _centrals[id] = r.device;
-        _remoteChars[id] = target;
-      } catch (_) {
-        try {
-          await r.device.disconnect();
-        } catch (_) {}
       }
+    } finally {
+      _handlingScan = false;
     }
   }
 
@@ -200,6 +249,7 @@ class AndroidBleMeshTransport implements MeshTransport {
     _centrals.clear();
     _remoteChars.clear();
     _serverPeers.clear();
+    _connecting.clear();
     try {
       await _methods.invokeMethod<void>('stopPeripheral');
     } catch (_) {}
@@ -208,7 +258,6 @@ class AndroidBleMeshTransport implements MeshTransport {
   @override
   Future<void> send(Uint8List data,
       {String? peerId, String? excludePeerId}) async {
-    // 1) Write to remotes we are central to
     final remoteEntries = _remoteChars.entries.where((e) {
       if (peerId != null) return e.key == peerId;
       if (excludePeerId != null) return e.key != excludePeerId;
@@ -223,7 +272,6 @@ class AndroidBleMeshTransport implements MeshTransport {
       } catch (_) {}
     }
 
-    // 2) Notify centrals connected to our GATT server
     if (peerId == null) {
       try {
         await _methods.invokeMethod<void>('notifyCentrals', {'data': data});

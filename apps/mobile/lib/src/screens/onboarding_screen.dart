@@ -53,7 +53,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               Icon(Icons.hub_outlined, size: 56, color: theme.colorScheme.primary),
               const SizedBox(height: 16),
               Text(
-                'Netless',
+                'Bitconnect',
                 style: theme.textTheme.headlineLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),

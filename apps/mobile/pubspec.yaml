@@ -1,5 +1,5 @@
 name: netless
-description: Offline Bluetooth mesh chat.
+description: Bitconnect — offline BLE mesh chat + worldwide E2E DMs.
 publish_to: none
 version: 0.1.0+1
 

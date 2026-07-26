@@ -1,6 +1,9 @@
-# Netless
+# Bitconnect
 
 **Offline Bluetooth mesh chat + worldwide end-to-end encrypted DMs.**
+
+Repository / product name: **Bitconnect**  
+(Local workspace folder may still be `netless`; internal package IDs keep `netless` for install compatibility.)
 
 No accounts. No phone numbers. No app server of your own for DMs — internet messages ride public Nostr relays as **ciphertext only**.
 
@@ -19,6 +22,7 @@ No accounts. No phone numbers. No app server of your own for DMs — internet me
 - Ed25519-signed channel posts
 - Default channel: `#local`
 - Android dual-role BLE (advertise + scan/connect)
+- **Range tuning:** max advertise TX power, low-latency scan, up to 10 peers, RSSI-aware connect, hop TTL 8
 
 ### Worldwide E2E (Internet)
 
@@ -42,8 +46,10 @@ No accounts. No phone numbers. No app server of your own for DMs — internet me
 Prebuilt release APK (sideload):
 
 ```
-C:\netless\dist\netless-release.apk
+dist/bitconnect-release.apk
 ```
+
+(or `dist/netless-release.apk` if you have an older build)
 
 Or rebuild:
 
@@ -52,10 +58,10 @@ $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot"
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 $env:PATH = "$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;C:\Users\hafil\flutter\bin;$env:PATH"
 
-cd C:\netless\apps\mobile
+cd apps/mobile
 flutter pub get
 flutter build apk --release
-# APK: build\app\outputs\flutter-apk\app-release.apk
+copy build\app\outputs\flutter-apk\app-release.apk ..\..\dist\bitconnect-release.apk
 ```
 
 **Requirements:** Android 8+ (API 26), Bluetooth for mesh, Internet for worldwide DMs.
@@ -63,17 +69,17 @@ flutter build apk --release
 ### USB install
 
 ```powershell
-adb install -r C:\netless\dist\netless-release.apk
+adb install -r dist\bitconnect-release.apk
 ```
 
 ---
 
-## App UX (what you see)
+## App UX
 
 Bottom navigation:
 
 1. **Local mesh** — `#local` channel, start/stop mesh, peer count, message list  
-2. **Worldwide** — copy your Netless ID, add a contact, connect relays, send 🔒 DMs  
+2. **Worldwide** — copy your **Bitconnect ID**, add a contact, connect relays, send 🔒 DMs  
 
 Onboarding sets a nickname and explains both modes.
 
@@ -81,14 +87,14 @@ Onboarding sets a nickname and explains both modes.
 
 1. Open **Local mesh** → **Start mesh** (or send a message to auto-start).
 2. Grant Bluetooth / nearby-device permissions.
-3. On a second phone with Netless nearby, start mesh and chat on `#local`.
+3. On a second phone with Bitconnect nearby, start mesh and chat on `#local`.
 4. Menu (⋮): switch **Bluetooth** vs **Simulator**, inject a fake hop, clear history.
 
 ### Worldwide E2E — India ↔ USA
 
 1. Open **Worldwide** on both phones (both need internet).
 2. Each taps **Copy my ID** and shares it (any channel).
-3. **Add contact** → paste their Netless ID → **Save & chat**.
+3. **Add contact** → paste their **Bitconnect ID** → **Save & chat**.
 4. Tap **Connect**, then send. Messages are encrypted **before** leaving the phone.
 
 ---
@@ -96,7 +102,7 @@ Onboarding sets a nickname and explains both modes.
 ## Repo layout
 
 ```
-apps/mobile/              Flutter UI (Material 3)
+apps/mobile/              Flutter UI (Material 3) — display name Bitconnect
 packages/
   mesh_protocol/          Packets, gossip, Ed25519, E2E crypto (pure Dart)
   mesh_transport/         FakeTransport + sim fabric
@@ -107,7 +113,7 @@ docs/
   E2E_INTERNET.md         Internet E2E threat model
   DEMO.md                 Multi-phone demo checklist
 dist/
-  netless-release.apk     Sideload build (when built)
+  bitconnect-release.apk  Sideload build (when built)
 ```
 
 ---
@@ -116,9 +122,9 @@ dist/
 
 ### Prerequisites
 
-- Flutter **3.22+** (this machine: `C:\Users\hafil\flutter`)
+- Flutter **3.22+**
 - **JDK 17** for Android Gradle (JDK 26 is too new for current Gradle)
-- Android SDK (`%LOCALAPPDATA%\Android\Sdk`)
+- Android SDK
 
 ```powershell
 $env:PATH = "C:\Users\hafil\flutter\bin;$env:PATH"
@@ -129,7 +135,7 @@ flutter doctor
 ### Run
 
 ```powershell
-cd C:\netless\apps\mobile
+cd apps/mobile
 flutter pub get
 flutter run
 ```
@@ -137,12 +143,10 @@ flutter run
 ### Tests
 
 ```powershell
-cd C:\netless\packages\mesh_protocol
+cd packages/mesh_protocol
 dart pub get
 dart test
 ```
-
-Includes multi-hop gossip sims and E2E seal/open tests.
 
 ---
 
@@ -161,7 +165,16 @@ Includes multi-hop gossip sims and E2E seal/open tests.
 
 - `mesh_protocol` has **no Flutter dependency** — unit-testable.
 - Mesh identity: Ed25519 (sign). Encryption identity: X25519 (E2E).
-- Netless ID (shareable) = **X25519 public key hex** (64 chars).
+- **Bitconnect ID** (shareable) = X25519 public key hex (64 chars).
+
+### Internal IDs (unchanged on purpose)
+
+| Item | Value | Why keep |
+|---|---|---|
+| Android `applicationId` | `app.netless.netless` | Same app on device after rebrand |
+| Flutter package name | `netless` | Path / import stability |
+| Secure storage keys | `netless_*` | Existing keys still load |
+| Protocol tags / crypto domain | `netless-e2e-v1` etc. | Wire compatibility |
 
 ---
 
@@ -171,7 +184,7 @@ Includes multi-hop gossip sims and E2E seal/open tests.
 |---|---|
 | `#local` mesh | **Not confidential** — anyone on the mesh can read |
 | Internet DMs | **E2E confidential + authenticated** |
-| Nicknames | Not unique; trust fingerprint / Netless ID |
+| Nicknames | Not unique; trust fingerprint / Bitconnect ID |
 | Relays | Untrusted; see only ciphertext + coarse metadata |
 | Keys | Stored in `flutter_secure_storage` |
 
@@ -197,9 +210,9 @@ Do **not** put secrets on `#local`. Use **Worldwide E2E** for private remote cha
 | Mesh status chips, empty states, start CTA | Done |
 | E2E contact add/copy ID, connect, locked bubbles | Done |
 | Timestamps, scroll-to-latest | Done |
-| Production polish (QR codes, push, read receipts, theming, a11y audit) | **Not done** |
+| Production polish (QR codes, push, read receipts) | **Not done** |
 
-The UI is **usable for demos and real E2E testing**, not a finished consumer chat product.
+Usable for demos and real E2E testing — not a finished consumer chat product.
 
 ---
 
