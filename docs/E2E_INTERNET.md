@@ -20,7 +20,7 @@ India ↔ USA works when **both phones have internet**.
 ## How to use
 
 1. Open **Worldwide E2E** (bottom nav).
-2. Copy **your Bitconnect ID** and send it out-of-band (QR, SMS, etc.).
+2. Copy **your Bitconnect ID** and send it out-of-band (SMS, chat, etc.).
 3. Paste their Bitconnect ID → **Save & chat**.
 4. Connect (cloud) and send. Messages show a lock icon.
 

@@ -43,8 +43,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset('assets/branding/app_logo.png', width: 64, height: 64),
-              const SizedBox(height: 16),
               const CircularProgressIndicator(color: AppTheme.brandGreen),
               const SizedBox(height: 12),
               Text(

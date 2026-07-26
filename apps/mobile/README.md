@@ -23,5 +23,5 @@ copy build\app\outputs\flutter-apk\app-arm64-v8a-release.apk ..\..\dist\bitconne
 ## Tabs
 
 - **Local** — mesh channels, photos, receipts  
-- **Worldwide** — E2E DMs, QR / paste contacts  
+- **Worldwide** — E2E DMs, paste contacts  
 - **Settings** — power mode, encrypted groups  

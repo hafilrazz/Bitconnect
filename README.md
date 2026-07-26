@@ -31,7 +31,7 @@ No accounts. No phone numbers. Messages hop phone-to-phone over BLE when offline
 - Private **1:1 DMs** India ↔ USA (or any distance) when both have internet
 - **X25519 ECDH + ChaCha20-Poly1305** encryption on-device
 - Relays **cannot read** message text
-- Share identity via **QR code**, **copy ID**, or **paste** (camera has paste fallback)
+- Share identity via **copy ID** or **paste**
 
 ### Not private
 
@@ -56,7 +56,7 @@ adb install -r dist\bitconnect-release.apk
 
 Or copy the APK to the phone and open it (allow install from unknown sources).
 
-**Requirements:** Android 8+ (API 26), Bluetooth for mesh, Internet for Worldwide DMs, Camera optional for QR scan.
+**Requirements:** Android 8+ (API 26), Bluetooth for mesh, Internet for Worldwide DMs.
 
 ### Smaller APKs (recommended)
 
@@ -101,17 +101,10 @@ In-app:
 
 | Entry | Purpose |
 |---|---|
-| **QR** (icon) | Show your Bitconnect ID QR; scan or paste a friend’s ID |
 | **Tune / Settings** | Power mode, public channels, create/join encrypted groups |
 | **Channel chips** | Switch `#local` / custom channels |
 | **Image** | Attach photo (mesh: compressed multi-chunk; Worldwide: larger) |
 | **Tap image** | Full-screen pinch-zoom viewer |
-
-### QR scanner notes
-
-- Live **camera stream** + **QR-only** decode (`camera` + on-device QR decode).
-- Allow **Camera** when prompted.
-- If camera fails: use **Paste** / **Add contact** — same result as scanning.
 
 ### Mesh images notes
 
@@ -136,8 +129,8 @@ In-app:
 ### Worldwide E2E (any distance)
 
 1. Both phones online.
-2. **Worldwide** (or QR) → **Copy my ID** / show QR.
-3. Friend scans QR or pastes your ID → **Save & chat**.
+2. **Worldwide** → **Copy my ID**.
+3. Friend pastes your ID → **Save & chat**.
 4. **Connect** relays → send locked messages.
 
 ### Encrypted local group
@@ -155,7 +148,7 @@ apps/mobile/                 Flutter app (Material 3 dark theme)
   assets/branding/           App logo
   lib/src/
     theme/                   Brand theme
-    screens/                 Local, Worldwide, QR, Settings, image viewer
+    screens/                 Local, Worldwide, Settings, image viewer
     widgets/                 Bubbles, chips, composer
 packages/
   mesh_protocol/             Packets, gossip, crypto, ferry, media chunks (pure Dart)
@@ -177,7 +170,7 @@ dist/
 ```
 ┌──────────────────────────────────────────────────┐
 │  Flutter UI  (Local | Worldwide)                 │
-│  Theme · QR · Settings · Image viewer            │
+│  Theme · Settings · Image viewer                 │
 ├────────────────────┬─────────────────────────────┤
 │  MeshController    │  Identity (Ed25519+X25519)  │
 ├────────────────────┼─────────────────────────────┤
@@ -263,8 +256,7 @@ Details: [docs/E2E_INTERNET.md](docs/E2E_INTERNET.md) · [docs/PROTOCOL.md](docs
 | Mesh images | Small thumbnails by design; large photos use Worldwide |
 | Background mesh | Best with app open; iOS dual-role is best-effort |
 | Nostr delivery | Depends on public relays (no guarantee like WhatsApp) |
-| Camera QR | Some OEMs flaky — **paste ID** always works |
-| App size | Prefer `--split-per-abi`; fat APK is large due to camera/ML + multi-ABI |
+| App size | Prefer `--split-per-abi`; fat multi-ABI APK is larger |
 | Signing | Release APK uses debug signing (sideload OK, not Play Store) |
 
 ---

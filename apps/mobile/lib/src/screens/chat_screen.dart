@@ -8,7 +8,6 @@ import '../mesh_controller.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/status_chip.dart';
 import 'image_viewer_screen.dart';
-import 'qr_screen.dart';
 import 'settings_screen.dart';
 
 /// Local BLE / sim mesh channel UI.
@@ -129,8 +128,6 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
       appBar: AppBar(
         title: Row(
           children: [
-            Image.asset('assets/branding/app_logo.png', width: 28, height: 28),
-            const SizedBox(width: 8),
             Flexible(child: Text(c.activeChannelName)),
             if (encrypted) ...[
               const SizedBox(width: 6),
@@ -139,17 +136,6 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: 'QR ID',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => QrShareScreen(controller: c),
-                ),
-              );
-            },
-            icon: const Icon(Icons.qr_code_2),
-          ),
           IconButton(
             tooltip: 'Settings / channels',
             onPressed: () {

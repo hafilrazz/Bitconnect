@@ -23,10 +23,6 @@ dependencies:
   mesh_internet:
     path: ../../packages/mesh_internet
   permission_handler: ^11.3.1
-  qr_flutter: ^4.1.0
-  # Camera stream + QR-only decode for contact IDs
-  camera: ^0.11.0
-  google_mlkit_barcode_scanning: ^0.13.0
   image_picker: ^1.1.2
   path_provider: ^2.1.4
   path: ^1.9.0

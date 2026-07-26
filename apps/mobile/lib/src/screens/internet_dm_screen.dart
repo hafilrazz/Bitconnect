@@ -6,7 +6,6 @@ import '../identity_store.dart';
 import '../mesh_controller.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/status_chip.dart';
-import 'qr_screen.dart';
 
 class InternetDmScreen extends StatefulWidget {
   const InternetDmScreen({
@@ -381,19 +380,6 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Worldwide E2E'),
-          actions: [
-            IconButton(
-              tooltip: 'QR',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => QrShareScreen(controller: c),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.qr_code_2),
-            ),
-          ],
         ),
         body: body,
       );
