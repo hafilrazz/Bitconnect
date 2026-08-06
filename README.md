@@ -106,13 +106,15 @@ In-app:
 | **Image** | Attach photo (mesh: compressed multi-chunk; Worldwide: larger) |
 | **Tap image** | Full-screen pinch-zoom viewer |
 
-### Mesh images notes
+### Media quality notes
 
-- **Compress** for mesh: max **448px**, JPEG ~**45 KB** target.
+- **Mesh images** are compressed for BLE multi-chunk delivery: max **720px**, JPEG ~**56 KB** target, down-scaled with **high-quality average interpolation** to preserve clarity within the BLE size limit.
+- **Worldwide images** keep a larger **1024px** / ~**140 KB** envelope for internet E2E.
+- Rendering uses **`FilterQuality.high`** in both the chat bubble and the full-screen viewer for the sharpest on-screen result.
 - **Binary file packet** (TLV: name / size / mime / content) — not JSON base64 chat spam.
 - Split into **binary BLE fragments**, reassembled into **one bubble**.
 - **Tap the thumbnail** → full-screen open.
-- Prefer **Worldwide** only if you need much larger photos.
+- Prefer **Worldwide** if you need much larger photos (mesh is capped by BLE fragment size).
 
 ---
 

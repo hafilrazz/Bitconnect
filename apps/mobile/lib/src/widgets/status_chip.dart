@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
+/// Compact pill-style status indicator.
 class StatusChip extends StatelessWidget {
   const StatusChip({
     super.key,
@@ -22,13 +23,24 @@ class StatusChip extends StatelessWidget {
         ? (activeColor ?? AppTheme.brandGreen)
         : Colors.white.withValues(alpha: 0.42);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: active ? 0.48 : 0.22)),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: color.withValues(alpha: active ? 0.50 : 0.20),
+        ),
         color: active
-            ? color.withValues(alpha: 0.12)
-            : Colors.white.withValues(alpha: 0.035),
+            ? color.withValues(alpha: 0.14)
+            : Colors.white.withValues(alpha: 0.04),
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.12),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

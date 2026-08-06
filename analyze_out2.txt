@@ -1,0 +1,55 @@
+﻿Resolving dependencies...
+Downloading packages...
+  bip340 0.2.0 (0.3.1 available)
+  flutter_blue_plus 1.36.8 (2.3.11 available)
+  flutter_blue_plus_android 7.0.4 (9.0.3 available)
+  flutter_blue_plus_darwin 7.0.3 (9.0.3 available)
+  flutter_blue_plus_linux 7.0.3 (9.0.3 available)
+  flutter_blue_plus_platform_interface 7.0.0 (9.0.3 available)
+  flutter_blue_plus_web 7.0.2 (9.0.3 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  flutter_riverpod 2.6.1 (3.4.2 available)
+  flutter_secure_storage 9.2.4 (11.0.0 available)
+  flutter_secure_storage_linux 1.2.3 (3.0.2 available)
+  flutter_secure_storage_macos 3.1.3 (4.0.0 available)
+  flutter_secure_storage_platform_interface 1.1.2 (2.0.3 available)
+  flutter_secure_storage_web 1.2.1 (2.1.1 available)
+  flutter_secure_storage_windows 3.1.2 (4.2.2 available)
+  hooks 2.0.2 (2.1.0 available)
+  image 4.8.0 (4.9.1 available)
+  jni 1.0.0 (1.0.3 available)
+  jni_flutter 1.0.1 (1.0.2 available)
+  js 0.6.7 (0.7.2 available)
+  lints 5.1.1 (6.1.0 available)
+  matcher 0.12.19 (0.12.20 available)
+  meta 1.18.0 (1.19.0 available)
+  objective_c 9.4.1 (9.5.0 available)
+  package_config 2.2.0 (3.0.0 available)
+  permission_handler 11.4.0 (13.0.0 available)
+  permission_handler_android 12.1.0 (14.0.0 available)
+  permission_handler_apple 9.4.10 (9.5.0 available)
+  permission_handler_html 0.1.3+5 (0.1.4+1 available)
+  permission_handler_platform_interface 4.3.0 (4.4.0 available)
+  permission_handler_windows 0.2.1 (0.2.2 available)
+  pointycastle 3.9.1 (4.0.0 available)
+  record_use 0.6.0 (1.0.0 available)
+  riverpod 2.6.1 (3.4.2 available)
+  test_api 0.7.11 (0.7.13 available)
+  vector_math 2.2.0 (2.4.2 available)
+  win32 5.15.0 (6.4.0 available)
+  xml 6.6.1 (7.0.1 available)
+Got dependencies!
+38 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing mobile...                                             
+
+   info - Unnecessary braces in a string interpolation. Try removing the braces - lib\src\mesh_controller.dart:407:44 - unnecessary_brace_in_string_interps
+   info - The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/services.dart'. Try removing the import directive - lib\src\screens\internet_dm_screen.dart:1:8 - unnecessary_import
+
+C:\Users\hafil\flutter\bin\flutter.bat : 2 issues found. (ran in 14.4s)
+At line:1 char:38
++ ... pps\mobile; C:\Users\hafil\flutter\bin\flutter.bat analyze 2>&1 | Out ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2 issues found. (ran in 14.4s):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
