@@ -185,32 +185,56 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
               ),
             ],
           ),
-        ],
+],
       ),
       body: Column(
         children: [
           Material(
-            color: theme.colorScheme.surfaceContainerHighest,
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.6,
+            ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '${c.nickname} · ${c.identity.shortFingerprint}',
-                    style: const TextStyle(fontFamily: 'monospace'),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  Row(
                     children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c.nickname,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              c.identity.shortFingerprint,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       StatusChip(
                         label: c.meshOn
                             ? 'Mesh on · ${c.peerCount} peer${c.peerCount == 1 ? '' : 's'}'
                             : 'Mesh off',
                         active: c.meshOn,
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
                       StatusChip(
                         label: c.mode == TransportMode.ble
                             ? 'Bluetooth'
@@ -231,7 +255,7 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   SizedBox(
                     height: 36,
                     child: ListView(
@@ -241,7 +265,8 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
                             (n) => Padding(
                               padding: const EdgeInsets.only(right: 6),
                               child: ChoiceChip(
-                                label: Text(n, style: const TextStyle(fontSize: 12)),
+                                label: Text(n,
+                                    style: const TextStyle(fontSize: 12)),
                                 selected: c.activeChannelName == n,
                                 onSelected: (_) {
                                   c.setActiveChannel(n);
