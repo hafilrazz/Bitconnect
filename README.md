@@ -7,9 +7,9 @@ No accounts. No phone numbers. Messages hop phone-to-phone over BLE when offline
 | | |
 |---|---|
 | **Product name** | Bitconnect |
-| **Version** | 0.2+ (mesh protocol v2) |
+| **Version** | 1.2.0+ (mesh protocol v2) |
 | **Platforms** | Android (primary), iOS scaffolded |
-| **Workspace path** | `C:\netless` (folder name is historical; product is Bitconnect) |
+| **Workspace path** | C:\bitconnect |
 
 ---
 
@@ -191,10 +191,10 @@ dist/
 
 | Item | Value | Why |
 |---|---|---|
-| Android `applicationId` | `app.netless.netless` | Stable installs/upgrades |
-| Flutter package name | `netless` | Import / path stability |
-| Secure storage keys | `netless_*` | Existing identities still load |
-| Protocol tags | `netless-e2e-v1`, magic `NT` | Wire compatibility |
+| Android `applicationId` | `app.bitconnect.bitconnect` | Stable installs/upgrades |
+| Flutter package name | `bitconnect` | Import / path stability |
+| Secure storage keys | `bitconnect_*` | Existing identities still load |
+| Protocol tags | `bitconnect-e2e-v1`, magic `NT` | Wire compatibility |
 
 ---
 
