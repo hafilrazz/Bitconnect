@@ -30,29 +30,37 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = isLocal
-        ? AppTheme.brandDeep.withValues(alpha: 0.55)
-        : AppTheme.card;
+        ? AppTheme.brandDeep.withValues(alpha: 0.72)
+        : AppTheme.elevated;
     final border = isLocal
-        ? AppTheme.brandGreen.withValues(alpha: 0.35)
-        : Colors.white.withValues(alpha: 0.06);
+        ? AppTheme.brandGreen.withValues(alpha: 0.36)
+        : Colors.white.withValues(alpha: 0.08);
 
     return Align(
       alignment: isLocal ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 5),
+        margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.82,
+          minWidth: 76,
         ),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isLocal ? 16 : 4),
-            bottomRight: Radius.circular(isLocal ? 4 : 16),
+            topLeft: const Radius.circular(14),
+            topRight: const Radius.circular(14),
+            bottomLeft: Radius.circular(isLocal ? 14 : 4),
+            bottomRight: Radius.circular(isLocal ? 4 : 14),
           ),
           border: Border.all(color: border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,28 +69,33 @@ class MessageBubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (locked) ...[
-                  Icon(Icons.lock_rounded,
-                      size: 12, color: AppTheme.brandGreen.withValues(alpha: 0.9)),
+                  Icon(
+                    Icons.lock_rounded,
+                    size: 12,
+                    color: AppTheme.brandGreen.withValues(alpha: 0.95),
+                  ),
                   const SizedBox(width: 4),
                 ],
                 Flexible(
                   child: Text(
                     header,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 11,
                       fontFamily: 'monospace',
-                      color: Colors.white.withValues(alpha: 0.55),
+                      color: Colors.white.withValues(alpha: 0.58),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 6),
             if (imageBytes != null && imageBytes!.isNotEmpty) ...[
               GestureDetector(
                 onTap: onImageTap,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   child: Stack(
                     alignment: Alignment.bottomRight,
                     children: [
@@ -90,6 +103,7 @@ class MessageBubble extends StatelessWidget {
                         imageBytes!,
                         width: 230,
                         fit: BoxFit.cover,
+                        filterQuality: FilterQuality.high,
                         errorBuilder: (_, __, ___) => Padding(
                           padding: const EdgeInsets.all(12),
                           child: Text(body),
@@ -98,9 +112,11 @@ class MessageBubble extends StatelessWidget {
                       Container(
                         margin: const EdgeInsets.all(6),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
+                          color: Colors.black.withValues(alpha: 0.58),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Row(
@@ -120,17 +136,22 @@ class MessageBubble extends StatelessWidget {
                 ),
               ),
               if (body.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(body,
-                    style: TextStyle(
-                      height: 1.3,
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.75),
-                    )),
+                const SizedBox(height: 7),
+                Text(
+                  body,
+                  style: TextStyle(
+                    height: 1.32,
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.78),
+                  ),
+                ),
               ],
             ] else
-              Text(body, style: const TextStyle(height: 1.35, fontSize: 15)),
-            const SizedBox(height: 5),
+              Text(
+                body,
+                style: const TextStyle(height: 1.34, fontSize: 15),
+              ),
+            const SizedBox(height: 6),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -139,7 +160,7 @@ class MessageBubble extends StatelessWidget {
                     timeLabel!,
                     style: TextStyle(
                       fontSize: 10,
-                      color: Colors.white.withValues(alpha: 0.4),
+                      color: Colors.white.withValues(alpha: 0.44),
                     ),
                   ),
                 if (isLocal && status != null) ...[
@@ -148,8 +169,8 @@ class MessageBubble extends StatelessWidget {
                     _statusIcon(status!),
                     size: 14,
                     color: status == DeliveryStatus.read
-                        ? const Color(0xFF74C0FC)
-                        : Colors.white.withValues(alpha: 0.45),
+                        ? AppTheme.accentBlue
+                        : Colors.white.withValues(alpha: 0.48),
                   ),
                 ],
               ],

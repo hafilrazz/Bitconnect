@@ -15,6 +15,7 @@ class ComposerBar extends StatelessWidget {
     this.hint = 'Message',
     this.enabled = true,
     this.primaryBusy = false,
+    this.prefixIcon,
   });
 
   final TextEditingController controller;
@@ -26,22 +27,29 @@ class ComposerBar extends StatelessWidget {
   final String hint;
   final bool enabled;
   final bool primaryBusy;
+  final IconData? prefixIcon;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.card,
-      elevation: 8,
+      color: AppTheme.surface,
+      elevation: 0,
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            border: Border(
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (onPrimaryAction != null)
                 Padding(
-                  padding: const EdgeInsets.only(right: 4, bottom: 2),
+                  padding: const EdgeInsets.only(right: 6, bottom: 1),
                   child: IconButton.filledTonal(
                     tooltip: primaryTooltip,
                     onPressed: primaryBusy ? null : onPrimaryAction,
@@ -56,7 +64,7 @@ class ComposerBar extends StatelessWidget {
                 ),
               if (onAttach != null)
                 Padding(
-                  padding: const EdgeInsets.only(right: 2, bottom: 2),
+                  padding: const EdgeInsets.only(right: 4, bottom: 1),
                   child: IconButton(
                     tooltip: 'Photo',
                     onPressed: enabled ? onAttach : null,
@@ -74,13 +82,17 @@ class ComposerBar extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: hint,
                     isDense: true,
+                    prefixIcon: prefixIcon == null
+                        ? null
+                        : Icon(prefixIcon, size: 18, color: Colors.white54),
                   ),
                 ),
               ),
               const SizedBox(width: 6),
               Padding(
-                padding: const EdgeInsets.only(bottom: 2),
+                padding: const EdgeInsets.only(bottom: 1),
                 child: IconButton.filled(
+                  tooltip: 'Send',
                   onPressed: enabled ? onSend : null,
                   icon: const Icon(Icons.send_rounded),
                 ),

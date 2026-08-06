@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mesh_protocol/mesh_protocol.dart';
 
 import '../mesh_controller.dart';
+import '../widgets/composer_bar.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/status_chip.dart';
 import 'image_viewer_screen.dart';
@@ -93,10 +94,10 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
       final picker = ImagePicker();
       final file = await picker.pickImage(
         source: ImageSource.gallery,
-        // Compressor will downscale to mesh limits (~448px / ~45KB)
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 90,
+        // Compressor will cap the final JPEG for mesh delivery.
+        maxWidth: 2400,
+        maxHeight: 2400,
+        imageQuality: 100,
       );
       if (file == null) return;
       if (!c.meshOn) await c.startMesh();
@@ -319,52 +320,20 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
                     },
                   ),
           ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
-              child: Row(
-                children: [
-                  IconButton.filledTonal(
-                    tooltip: c.meshOn ? 'Stop mesh' : 'Start mesh',
-                    onPressed: _busy ? null : _toggleMesh,
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(c.meshOn
-                            ? Icons.wifi_tethering
-                            : Icons.wifi_tethering_off),
-                  ),
-                  IconButton(
-                    tooltip: 'Send photo',
-                    onPressed: _pickImage,
-                    icon: const Icon(Icons.image_outlined),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _text,
-                      textInputAction: TextInputAction.send,
-                      decoration: InputDecoration(
-                        hintText: encrypted
-                            ? 'Encrypted message on ${c.activeChannelName}'
-                            : 'Message ${c.activeChannelName}',
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onSubmitted: (_) => _send(),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  IconButton.filled(
-                    onPressed: _send,
-                    icon: const Icon(Icons.send),
-                  ),
-                ],
-              ),
-            ),
+          ComposerBar(
+            controller: _text,
+            onSend: _send,
+            onAttach: _pickImage,
+            onPrimaryAction: _toggleMesh,
+            primaryBusy: _busy,
+            primaryTooltip: c.meshOn ? 'Stop mesh' : 'Start mesh',
+            primaryIcon: c.meshOn
+                ? Icons.wifi_tethering
+                : Icons.wifi_tethering_off,
+            hint: encrypted
+                ? 'Encrypted message on ${c.activeChannelName}'
+                : 'Message ${c.activeChannelName}',
+            prefixIcon: encrypted ? Icons.lock_outline : null,
           ),
         ],
       ),
@@ -418,4 +387,3 @@ class _EmptyLocal extends StatelessWidget {
     );
   }
 }
-

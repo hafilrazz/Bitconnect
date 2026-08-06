@@ -396,13 +396,15 @@ class MeshController extends ChangeNotifier {
     await inet.sendDm(recipientNetlessId: peer, text: text);
   }
 
-  Future<void> sendInternetMedia(Uint8List bytes, {String name = 'photo.jpg'}) async {
-    // Base64 embed in E2E text payload (size-capped)
-    if (bytes.length > 40 * 1024) {
-      throw StateError('Image too large (max ~40KB for E2E demo)');
-    }
-    final b64 = base64Encode(bytes);
-    await sendInternetDm('MEDIA:image/jpeg:$name:$b64');
+  Future<void> sendInternetMedia(Uint8List bytes,
+      {String name = 'photo.jpg'}) async {
+    final data = compressForInternetMedia(bytes);
+    final safeName = name.toLowerCase().endsWith('.jpg') ||
+            name.toLowerCase().endsWith('.jpeg')
+        ? name
+        : 'photo.jpg';
+    final b64 = base64Encode(data);
+    await sendInternetDm('MEDIA:image/jpeg:${safeName}:$b64');
   }
 
   void setActivePeer(String netlessId) {

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../identity_store.dart';
 import '../mesh_controller.dart';
+import '../widgets/composer_bar.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/status_chip.dart';
 
@@ -337,41 +338,15 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
                   },
                 ),
         ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: 'Send image',
-                  onPressed: c.activePeerId == null ? null : _pickImage,
-                  icon: const Icon(Icons.image_outlined),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _text,
-                    enabled: c.activePeerId != null,
-                    textInputAction: TextInputAction.send,
-                    decoration: InputDecoration(
-                      hintText: c.activePeerId == null
-                          ? 'Select a contact first'
-                          : 'Encrypted message',
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                      prefixIcon: const Icon(Icons.lock_outline, size: 18),
-                    ),
-                    onSubmitted: (_) => _send(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: c.activePeerId == null ? null : _send,
-                  icon: const Icon(Icons.send),
-                ),
-              ],
-            ),
-          ),
+        ComposerBar(
+          controller: _text,
+          onSend: _send,
+          onAttach: _pickImage,
+          enabled: c.activePeerId != null,
+          hint: c.activePeerId == null
+              ? 'Select a contact first'
+              : 'Encrypted message',
+          prefixIcon: Icons.lock_outline,
         ),
       ],
     );
@@ -404,9 +379,9 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
     try {
       final file = await ImagePicker().pickImage(
         source: ImageSource.gallery,
-        maxWidth: 640,
-        maxHeight: 640,
-        imageQuality: 55,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 95,
       );
       if (file == null) return;
       final bytes = await file.readAsBytes();

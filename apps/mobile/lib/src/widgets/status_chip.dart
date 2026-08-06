@@ -20,35 +20,30 @@ class StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = active
         ? (activeColor ?? AppTheme.brandGreen)
-        : Colors.white.withValues(alpha: 0.45);
+        : Colors.white.withValues(alpha: 0.42);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.55)),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: active ? 0.48 : 0.22)),
         color: active
             ? color.withValues(alpha: 0.12)
-            : Colors.white.withValues(alpha: 0.04),
+            : Colors.white.withValues(alpha: 0.035),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 5),
-          ] else ...[
-            Icon(
-              active ? Icons.circle : Icons.circle_outlined,
-              size: 8,
-              color: color,
-            ),
-            const SizedBox(width: 6),
-          ],
+          Icon(
+            icon ?? (active ? Icons.circle : Icons.circle_outlined),
+            size: icon == null ? 8 : 13,
+            color: color,
+          ),
+          const SizedBox(width: 6),
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: active ? color : Colors.white60,
             ),
           ),

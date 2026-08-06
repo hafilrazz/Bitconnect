@@ -29,6 +29,7 @@ class ImageViewerScreen extends StatelessWidget {
           child: Image.memory(
             bytes,
             fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
             errorBuilder: (_, __, ___) => const Text(
               'Could not display image',
               style: TextStyle(color: Colors.white70),
