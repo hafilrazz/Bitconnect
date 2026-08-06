@@ -362,7 +362,9 @@ class MeshController extends ChangeNotifier {
       });
       await _internet!.start();
       internetOn = true;
-      internetStatus = 'E2E online · id ${netlessId.substring(0, 12)}…';
+      final shortId =
+          netlessId.length > 12 ? netlessId.substring(0, 12) : netlessId;
+      internetStatus = 'E2E online · id $shortId…';
       notifyListeners();
     } catch (e) {
       lastError = e.toString();
@@ -404,7 +406,7 @@ class MeshController extends ChangeNotifier {
         ? name
         : 'photo.jpg';
     final b64 = base64Encode(data);
-    await sendInternetDm('MEDIA:image/jpeg:${safeName}:$b64');
+    await sendInternetDm('MEDIA:image/jpeg:$safeName:$b64');
   }
 
   void setActivePeer(String netlessId) {

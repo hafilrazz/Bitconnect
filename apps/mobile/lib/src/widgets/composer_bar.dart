@@ -32,14 +32,15 @@ class ComposerBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.surface,
+      color: Colors.transparent,
       elevation: 0,
       child: SafeArea(
         top: false,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+          padding: const EdgeInsets.fromLTRB(AppTheme.md, AppTheme.sm,
+              AppTheme.md, AppTheme.sm),
           decoration: BoxDecoration(
-            color: AppTheme.surface,
+            color: AppTheme.surface.withValues(alpha: 0.97),
             border: Border(
               top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
             ),
@@ -88,7 +89,7 @@ class ComposerBar extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Padding(
                 padding: const EdgeInsets.only(bottom: 1),
                 child: IconButton.filled(
