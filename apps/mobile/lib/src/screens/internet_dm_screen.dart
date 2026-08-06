@@ -117,59 +117,74 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
     }
   }
 
-  String? get _activeName {
-    final id = c.activePeerId;
-    if (id == null) return null;
-    for (final x in c.contacts) {
-      if (x.netlessId == id) return x.name;
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final msgs = c.messagesForActivePeer();
-    final peerLabel = _activeName != null
-        ? '$_activeName'
-        : (c.activePeerId != null
-            ? '${c.activePeerId!.substring(0, 8)}…'
-            : 'No contact');
 
     final body = Column(
       children: [
         Material(
-          color: theme.colorScheme.surfaceContainerHighest,
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.6,
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Private 1:1 · pure end-to-end encryption',
-                  style: theme.textTheme.titleSmall,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Works India ↔ USA when both have internet. '
-                  'Relays only see ciphertext.',
-                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.white60),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                Row(
                   children: [
-                    StatusChip(
-                      label: c.internetOn ? 'Relays connected' : 'Offline',
-                      active: c.internetOn,
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: theme.colorScheme.tertiary.withValues(
+                          alpha: 0.14,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.lock_rounded,
+                        color: theme.colorScheme.tertiary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Private 1:1',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Pure end-to-end encryption',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     StatusChip(
-                      label: 'Chatting: $peerLabel',
-                      active: c.activePeerId != null,
+                      label: c.internetOn ? 'Online' : 'Offline',
+                      active: c.internetOn,
                       activeColor: theme.colorScheme.tertiary,
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Works India ↔ USA when both have internet. '
+                  'Relays only see ciphertext.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    height: 1.35,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Row(
