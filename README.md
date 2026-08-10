@@ -1,6 +1,6 @@
-# Bitconnect
+# Bitconnect 
 
-**Offline Bluetooth mesh chat + worldwide end-to-end encrypted DMs.**
+**Decentralized Application Focused On Privacy And Secure Message Transfer Between User.**
 
 No accounts. No phone numbers. Messages hop phone-to-phone over BLE when offline, or travel the world as pure E2E ciphertext over public Nostr relays.
 
