@@ -25,7 +25,6 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
   final _text = TextEditingController();
   final _scroll = ScrollController();
   bool _busy = false;
-  bool _stickToBottom = true;
 
   MeshController get c => widget.controller;
 
@@ -33,20 +32,12 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
   void initState() {
     super.initState();
     c.addListener(_onChange);
-    _scroll.addListener(_onScroll);
   }
 
   void _onChange() {
     if (!mounted) return;
     setState(() {});
-    if (_stickToBottom) _scrollToEnd();
-  }
-
-  void _onScroll() {
-    if (!_scroll.hasClients) return;
-    final position = _scroll.position;
-    final distance = position.maxScrollExtent - position.pixels;
-    _stickToBottom = distance < 120;
+    _scrollToEnd();
   }
 
   void _scrollToEnd() {
@@ -63,7 +54,6 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
   @override
   void dispose() {
     c.removeListener(_onChange);
-    _scroll.removeListener(_onScroll);
     _text.dispose();
     _scroll.dispose();
     super.dispose();
@@ -314,8 +304,6 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
                 ? _EmptyLocal(meshOn: c.meshOn, onStart: _busy ? null : _toggleMesh)
                 : ListView.builder(
                     controller: _scroll,
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.all(12),
                     itemCount: msgs.length,
                     itemBuilder: (context, i) {
@@ -324,37 +312,34 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
                           (m.mediaId != null
                               ? c.mediaGallery[m.mediaId!]
                               : null);
-                      return RepaintBoundary(
-                        key: ValueKey(m.msgIdHex),
-                        child: GestureDetector(
-                          onTap: () {
-                            if (img != null && img.isNotEmpty) {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => ImageViewerScreen(
-                                    bytes: img,
-                                    title: m.text,
-                                  ),
+                      return GestureDetector(
+                        onTap: () {
+                          if (img != null && img.isNotEmpty) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ImageViewerScreen(
+                                  bytes: img,
+                                  title: m.text,
                                 ),
-                              );
-                              if (!m.isLocal && c.meshOn) c.markRead(m);
-                              return;
-                            }
+                              ),
+                            );
                             if (!m.isLocal && c.meshOn) c.markRead(m);
-                          },
-                          child: MessageBubble(
-                            isLocal: m.isLocal,
-                            locked: encrypted ||
-                                (m.packet.flags & MeshConstants.flagEncrypted) !=
-                                    0,
-                            header: '${m.nickname} · ${m.fingerprint}',
-                            body: m.text,
-                            timeLabel: formatEpoch(m.packet.timestamp),
-                            status: m.isLocal
-                                ? (c.delivery[m.msgIdHex] ?? m.status)
-                                : null,
-                            imageBytes: img,
-                          ),
+                            return;
+                          }
+                          if (!m.isLocal && c.meshOn) c.markRead(m);
+                        },
+                        child: MessageBubble(
+                          isLocal: m.isLocal,
+                          locked: encrypted ||
+                              (m.packet.flags & MeshConstants.flagEncrypted) !=
+                                  0,
+                          header: '${m.nickname} · ${m.fingerprint}',
+                          body: m.text,
+                          timeLabel: formatEpoch(m.packet.timestamp),
+                          status: m.isLocal
+                              ? (c.delivery[m.msgIdHex] ?? m.status)
+                              : null,
+                          imageBytes: img,
                         ),
                       );
                     },
