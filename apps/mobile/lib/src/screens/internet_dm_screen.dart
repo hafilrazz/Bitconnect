@@ -349,6 +349,8 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
                 )
               : ListView.builder(
                   controller: _scroll,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.all(12),
                   itemCount: msgs.length,
                   itemBuilder: (context, i) {
