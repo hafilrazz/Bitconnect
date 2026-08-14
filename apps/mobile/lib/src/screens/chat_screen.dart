@@ -314,6 +314,8 @@ class _LocalMeshPageState extends State<LocalMeshPage> {
                 ? _EmptyLocal(meshOn: c.meshOn, onStart: _busy ? null : _toggleMesh)
                 : ListView.builder(
                     controller: _scroll,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.all(12),
                     itemCount: msgs.length,
                     itemBuilder: (context, i) {

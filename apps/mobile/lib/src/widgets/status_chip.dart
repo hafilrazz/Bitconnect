@@ -22,44 +22,49 @@ class StatusChip extends StatelessWidget {
     final color = active
         ? (activeColor ?? AppTheme.brandGreen)
         : Colors.white.withValues(alpha: 0.42);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: color.withValues(alpha: active ? 0.50 : 0.20),
+    return Semantics(
+      label: '$label status',
+      value: active ? 'active' : 'inactive',
+      readOnly: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: color.withValues(alpha: active ? 0.50 : 0.20),
+          ),
+          color: active
+              ? color.withValues(alpha: 0.14)
+              : Colors.white.withValues(alpha: 0.04),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
         ),
-        color: active
-            ? color.withValues(alpha: 0.14)
-            : Colors.white.withValues(alpha: 0.04),
-        boxShadow: active
-            ? [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.12),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ]
-            : null,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon ?? (active ? Icons.circle : Icons.circle_outlined),
-            size: icon == null ? 8 : 13,
-            color: color,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: active ? color : Colors.white60,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon ?? (active ? Icons.circle : Icons.circle_outlined),
+              size: icon == null ? 8 : 13,
+              color: color,
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: active ? color : Colors.white60,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
