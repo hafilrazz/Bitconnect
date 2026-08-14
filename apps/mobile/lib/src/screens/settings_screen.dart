@@ -94,9 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                Row(
                   children: [
                     FilledButton.tonal(
                       onPressed: () {
@@ -107,6 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       },
                       child: const Text('Add public'),
                     ),
+                    const SizedBox(width: 8),
                     FilledButton(
                       onPressed: () {
                         final n = _channelName.text.trim();
