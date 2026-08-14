@@ -27,9 +27,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   Future<void> _load() async {
     final c = await ref.read(meshControllerBootstrapProvider.future);
-    c.addListener(() {
-      if (mounted) setState(() {});
-    });
     if (mounted) setState(() => _controller = c);
   }
 
@@ -63,33 +60,38 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           InternetDmScreen(controller: c, embedded: true),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: [
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: c.meshOn,
-              smallSize: 8,
-              backgroundColor: AppTheme.brandGreen,
-              child: Icon(
-                c.meshOn ? Icons.wifi_tethering : Icons.wifi_tethering_off_outlined,
+      bottomNavigationBar: AnimatedBuilder(
+        animation: c,
+        builder: (context, _) => NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          destinations: [
+            NavigationDestination(
+              icon: Badge(
+                isLabelVisible: c.meshOn,
+                smallSize: 8,
+                backgroundColor: AppTheme.brandGreen,
+                child: Icon(
+                  c.meshOn
+                      ? Icons.wifi_tethering
+                      : Icons.wifi_tethering_off_outlined,
+                ),
               ),
+              selectedIcon: const Icon(Icons.wifi_tethering),
+              label: 'Local',
             ),
-            selectedIcon: const Icon(Icons.wifi_tethering),
-            label: 'Local',
-          ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: c.internetOn,
-              smallSize: 8,
-              backgroundColor: AppTheme.brandGreen,
-              child: Icon(c.internetOn ? Icons.lock : Icons.public_outlined),
+            NavigationDestination(
+              icon: Badge(
+                isLabelVisible: c.internetOn,
+                smallSize: 8,
+                backgroundColor: AppTheme.brandGreen,
+                child: Icon(c.internetOn ? Icons.lock : Icons.public_outlined),
+              ),
+              selectedIcon: const Icon(Icons.lock),
+              label: 'Worldwide',
             ),
-            selectedIcon: const Icon(Icons.lock),
-            label: 'Worldwide',
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
