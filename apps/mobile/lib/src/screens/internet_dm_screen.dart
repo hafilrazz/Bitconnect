@@ -29,7 +29,6 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
   final _scroll = ScrollController();
   bool _busy = false;
   bool _showAddContact = true;
-  bool _stickToBottom = true;
 
   MeshController get c => widget.controller;
 
@@ -37,7 +36,6 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
   void initState() {
     super.initState();
     c.addListener(_onChange);
-    _scroll.addListener(_onScroll);
     if (c.activePeerId != null) {
       _peerId.text = c.activePeerId!;
       _showAddContact = c.contacts.isEmpty;
@@ -47,14 +45,7 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
   void _onChange() {
     if (!mounted) return;
     setState(() {});
-    if (_stickToBottom) _scrollToEnd();
-  }
-
-  void _onScroll() {
-    if (!_scroll.hasClients) return;
-    final position = _scroll.position;
-    final distance = position.maxScrollExtent - position.pixels;
-    _stickToBottom = distance < 120;
+    _scrollToEnd();
   }
 
   void _scrollToEnd() {
@@ -71,7 +62,6 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
   @override
   void dispose() {
     c.removeListener(_onChange);
-    _scroll.removeListener(_onScroll);
     _text.dispose();
     _peerId.dispose();
     _peerName.dispose();
@@ -349,21 +339,16 @@ class _InternetDmScreenState extends State<InternetDmScreen> {
                 )
               : ListView.builder(
                   controller: _scroll,
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.all(12),
                   itemCount: msgs.length,
                   itemBuilder: (context, i) {
                     final m = msgs[i];
-                    return RepaintBoundary(
-                      key: ValueKey('${m.timestamp}-${m.senderSignFingerprint}'),
-                      child: MessageBubble(
-                        isLocal: m.isLocal,
-                        locked: true,
-                        header: '${m.nickname} · ${m.senderSignFingerprint}',
-                        body: m.text,
-                        timeLabel: formatEpoch(m.timestamp),
-                      ),
+                    return MessageBubble(
+                      isLocal: m.isLocal,
+                      locked: true,
+                      header: '${m.nickname} · ${m.senderSignFingerprint}',
+                      body: m.text,
+                      timeLabel: formatEpoch(m.timestamp),
                     );
                   },
                 ),
