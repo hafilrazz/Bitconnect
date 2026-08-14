@@ -36,6 +36,7 @@ class MessageBubble extends StatelessWidget {
         ? AppTheme.brandGreen.withValues(alpha: 0.40)
         : Colors.white.withValues(alpha: 0.08);
     final avatarColor = AppTheme.colorForSeed(header);
+    final imageCacheWidth = (230 * MediaQuery.of(context).devicePixelRatio).round();
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -111,7 +112,9 @@ class MessageBubble extends StatelessWidget {
                             Image.memory(
                               imageBytes!,
                               width: 230,
+                              cacheWidth: imageCacheWidth,
                               fit: BoxFit.cover,
+                              gaplessPlayback: true,
                               filterQuality: FilterQuality.high,
                               errorBuilder: (_, __, ___) => Padding(
                                 padding: const EdgeInsets.all(12),
