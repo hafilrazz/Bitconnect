@@ -265,6 +265,7 @@ Details: [docs/E2E_INTERNET.md](docs/E2E_INTERNET.md) · [docs/PROTOCOL.md](docs
 
 ## Demo checklist
 
+
 See [docs/DEMO.md](docs/DEMO.md) for two-phone mesh, multi-hop, and Worldwide E2E acceptance steps.
 
 ---
